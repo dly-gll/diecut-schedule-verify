@@ -600,11 +600,15 @@ function extractWorkflowRow(row, index, productMap, excelContext = {}) {
   const productName = normalizeImportText(findImportValue(row, [
     '品名','产品名称','物料名称','产品名','product_name','item name'
   ])) || normalizeImportText(product?.product_name) || normalizeImportText(excelContext.productNames?.get(productCode));
-  const quantity = numberOr(findImportValue(row, [
-    '工单数量','订单数量','需求数量','生产数量','预计计划量','计划数量','数量','qty','pcs','预计产量'
+  const quantity = numberOr(findImportValuePriority(row, [
+    '预计产量','预计计划量'
+  ], [
+    '工单数量','订单数量','需求数量','生产数量','计划数量','数量','qty','pcs'
   ]), 0);
-  const shippingQuantity = numberOr(findImportValue(row, [
-    '出货数量','已出货数量','交货数量','发货数量','shipping_quantity','shipping quantity'
+  const shippingQuantity = numberOr(findImportValuePriority(row, [
+    '出货数量','shipping_quantity','shipping quantity'
+  ], [
+    '已出货数量','交货数量','发货数量','delivery quantity'
   ]), 0);
   const stage = detectWorkflowStage(row);
   const fullText = Object.values(row || {}).map(v => normalizeImportText(v)).join(' | ');
@@ -614,12 +618,20 @@ function extractWorkflowRow(row, index, productMap, excelContext = {}) {
 
   // 工单看板的交期以“在制工单明细”本行的明确日期为准；只有本行完全没有日期时才回退到每日急件表。
   // 工单看板严格使用“在制工单明细”本行的日期；不再用品号级每日急件日期覆盖工单日期，避免出现与 Excel 不一致的日期。
-  const shippingRequiredDate = normalizeImportedDate(findImportValue(row, [
+  const shippingRequiredDate = normalizeImportedDate(findImportValuePriority(row, [
     '要求出货时间','出货需求日期','出货需求时间','客户出货需求日期','客户要求出货日期','要求出货日期','ship date','requested ship date'
-  ])) || null;
-  const deliveryDate = normalizeImportedDate(findImportValue(row, [
+  ], []))
+    || excelContext.shippingRequiredDateByOrder?.get(orderNumber)
+    || excelContext.urgentShippingDateByOrder?.get(orderNumber)
+    || excelContext.urgentShippingDate?.get(productCode)
+    || null;
+  const deliveryDate = normalizeImportedDate(findImportValuePriority(row, [
     '交货日期','交货时间','客户交货日期','要求交货日期','要求交货时间','delivery_date','delivery date'
-  ])) || null;
+  ], []))
+    || excelContext.deliveryDateByOrder?.get(orderNumber)
+    || excelContext.urgentDeliveryDateByOrder?.get(orderNumber)
+    || excelContext.urgentDeliveryDate?.get(productCode)
+    || null;
 
   const explicitExpected = normalizeImportedDate(findImportValue(row, [
     '预计日期','计划日期','应齐料日期','齐料日期','到料日期','发料日期','预计发料日期','预计开工日期','开工日期','计划开工日期','预计完工日期','应完工日期','expected date'
@@ -724,6 +736,7 @@ function extractWorkflowRow(row, index, productMap, excelContext = {}) {
     row_index: index + 2
   };
 }
+
 function workflowStageRank(stage) { return WORKFLOW_STAGE_ORDER.indexOf(stage) >= 0 ? WORKFLOW_STAGE_ORDER.indexOf(stage) : 0; }
 
 function getWorkflowOrderRow(orderNumber, productCode) {
@@ -836,6 +849,10 @@ function buildWorkflowExcelContext(rows) {
   const urgentGap = new Map();
   const urgentShippingDate = new Map();
   const urgentDeliveryDate = new Map();
+  const urgentShippingDateByOrder = new Map();
+  const urgentDeliveryDateByOrder = new Map();
+  const shippingRequiredDateByOrder = new Map();
+  const deliveryDateByOrder = new Map();
   const productNames = new Map();
   const products = new Map();
 
@@ -847,6 +864,9 @@ function buildWorkflowExcelContext(rows) {
       if (code && Number.isFinite(gap)) urgentGap.set(code, gap);
       const shipDate = normalizeImportedDate(findImportValue(r, ['要求出货时间','出货需求日期','出货日期']));
       const delDate = normalizeImportedDate(findImportValue(r, ['交货日期','要求交货日期']));
+      const workOrder = normalizeImportText(findImportValue(r, ['工单编号','工单号','订单号','订单编号','制造单号','生产单号','work order','wo','wo no','生产工单']));
+      if (workOrder && shipDate && !urgentShippingDateByOrder.has(workOrder)) urgentShippingDateByOrder.set(workOrder, shipDate);
+      if (workOrder && delDate && !urgentDeliveryDateByOrder.has(workOrder)) urgentDeliveryDateByOrder.set(workOrder, delDate);
       if (code && shipDate && !urgentShippingDate.has(code)) urgentShippingDate.set(code, shipDate);
       if (code && delDate && !urgentDeliveryDate.has(code)) urgentDeliveryDate.set(code, delDate);
       const nm = normalizeImportText(findImportValue(r, ['品名','产品名称']));
@@ -867,6 +887,14 @@ function buildWorkflowExcelContext(rows) {
         const old = products.get(codeF) || {};
         products.set(codeF, {...old, product_code:codeF, product_name:old.product_name || nameF || '', process:old.process || processF || ''});
       }
+    }
+
+    const workOrder = normalizeImportText(findImportValue(r, ['工单编号','工单号','订单号','订单编号','制造单号','生产单号','work order','wo','wo no','生产工单']));
+    if (workOrder) {
+      const shipDate = normalizeImportedDate(findImportValue(r, ['要求出货时间','出货需求日期','出货需求时间','客户出货需求日期','客户要求出货日期','要求出货日期']));
+      const delDate = normalizeImportedDate(findImportValue(r, ['交货日期','交货时间','客户交货日期','要求交货日期','要求交货时间']));
+      if (shipDate && !shippingRequiredDateByOrder.has(workOrder)) shippingRequiredDateByOrder.set(workOrder, shipDate);
+      if (delDate && !deliveryDateByOrder.has(workOrder)) deliveryDateByOrder.set(workOrder, delDate);
     }
 
     if (/模数跳距/i.test(sheet)) {
@@ -897,7 +925,7 @@ function buildWorkflowExcelContext(rows) {
     products.set(code, {...old, machines:list.join(',')});
   }
 
-  return {inventory,inspection,sales,delivery,urgentGap,urgentShippingDate,urgentDeliveryDate,products,productNames};
+  return {inventory,inspection,sales,delivery,urgentGap,urgentShippingDate,urgentDeliveryDate,urgentShippingDateByOrder,urgentDeliveryDateByOrder,shippingRequiredDateByOrder,deliveryDateByOrder,products,productNames};
 }
 
 app.post('/api/workflow/import', requireEdit, (req,res)=>{
@@ -1188,6 +1216,21 @@ function normalizeImportText(value) {
 
 function normalizeProductCode(value) {
   return normalizeImportText(value).replace(/[\s\u3000]/g, '').toUpperCase();
+}
+
+function findImportValuePriority(row, preferredAliases = [], fallbackAliases = []) {
+  const entries = Object.entries(row || {});
+  const normalizedEntries = entries.map(([k,v]) => ({ key: normalizeImportHeader(k), value:v }));
+  const preferred = preferredAliases.map(normalizeImportHeader).filter(Boolean);
+  for (const alias of preferred) {
+    const exact = normalizedEntries.find(x => x.key === alias);
+    if (exact) return exact.value;
+  }
+  for (const alias of preferred) {
+    const partial = normalizedEntries.find(x => x.key.includes(alias));
+    if (partial) return partial.value;
+  }
+  return findImportValue(row, fallbackAliases.length ? fallbackAliases : preferredAliases);
 }
 
 function findImportValue(row, aliases) {
