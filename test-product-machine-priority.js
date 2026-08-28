@@ -5,7 +5,7 @@ const vm = require('vm');
 const serverPath = path.join(__dirname, 'diecut-schedule', 'server.js');
 const source = fs.readFileSync(serverPath, 'utf8');
 
-if (!source.includes('// V5.1.7-PRODUCT-DATA-EQUIPMENT-PRIORITY')) {
+if (!source.includes('// V5.1.8-PRODUCT-DATA-EQUIPMENT-PRIORITY')) {
   throw new Error('Product-data equipment priority marker missing');
 }
 
@@ -19,7 +19,7 @@ vm.runInNewContext(`${chunk}\nthis.__auto = autoNormalizeImportedOrder;`, sandbo
 const autoNormalizeImportedOrder = sandbox.__auto;
 
 // 这里使用用户真实 data.db 中的产品数据样本：
-// 31WB00271A / 31PM01254A 的 product_data.process 与 product_data.machines 均来自真实现场数据库。
+// 31WB00271A / 31PM01254A / 31PM00610A 的 product_data 信息来自真实现场数据库。
 const productMap = new Map([
   ['31WB00271A', {
     product_code: '31WB00271A',
@@ -37,6 +37,15 @@ const productMap = new Map([
     process: '对面冲压（350/H）',
     mold: 'Z5623',
     capacity: 1000,
+    mold_change_time: 30
+  }],
+  ['31PM00610A', {
+    product_code: '31PM00610A',
+    product_name: '左吸音棉',
+    machines: '3',
+    process: '单斩',
+    mold: 'Z3610',
+    capacity: 4419,
     mold_change_time: 30
   }],
   ['31PM00001A', {
@@ -65,7 +74,7 @@ if (productWins.machine_tokens !== '1') {
   throw new Error(`Expected product data available-machine value to win, got: ${productWins.machine_tokens}`);
 }
 if (productWins.mold !== 'Excel刀模') {
-  throw new Error('Existing rule changed: Excel mold should still be preserved when product mold fallback is only used');
+  throw new Error('Existing rule changed: Excel mold should still be preserved when supplied by Excel');
 }
 
 const productWinsSecondRealSample = autoNormalizeImportedOrder({
@@ -83,6 +92,18 @@ if (productWinsSecondRealSample.machine_tokens !== '对面') {
   throw new Error(`Expected second real product-data machine to win, got: ${productWinsSecondRealSample.machine_tokens}`);
 }
 
+const productWinsThirdRealSample = autoNormalizeImportedOrder({
+  '工单编号': '5110-TEST-00610A',
+  '品号': '31PM00610A',
+  '品名': '左吸音棉',
+  '预计产量': 5000,
+  '设备': 'Excel机台-D',
+  '刀模': 'Excel刀模'
+}, 2, productMap);
+if (productWinsThirdRealSample.process !== '单斩' || productWinsThirdRealSample.machine_tokens !== '3') {
+  throw new Error(`Expected third real product-data equipment/machine to win, got: process=${productWinsThirdRealSample.process}, machine=${productWinsThirdRealSample.machine_tokens}`);
+}
+
 const excelFallback = autoNormalizeImportedOrder({
   '工单编号': 'TEST-002',
   '品号': '31PM00001A',
@@ -90,7 +111,7 @@ const excelFallback = autoNormalizeImportedOrder({
   '预计产量': 20000,
   '设备': 'Excel机台-C',
   '刀模': 'M001'
-}, 2, productMap);
+}, 3, productMap);
 if (excelFallback.machine_tokens !== 'Excel机台-C') {
   throw new Error(`Expected Excel machine fallback when product-data machine is empty, got: ${excelFallback.machine_tokens}`);
 }
@@ -105,7 +126,7 @@ const noProductFallback = autoNormalizeImportedOrder({
   '预计产量': 5000,
   '设备': 'Excel机台-D',
   '刀模': 'M003'
-}, 3, productMap);
+}, 4, productMap);
 if (noProductFallback.machine_tokens !== 'Excel机台-D' || noProductFallback.process !== 'Excel机台-D') {
   throw new Error(`Expected full Excel equipment fallback for unmatched product, got: process=${noProductFallback.process}, machine_tokens=${noProductFallback.machine_tokens}`);
 }
