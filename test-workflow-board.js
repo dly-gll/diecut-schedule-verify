@@ -48,7 +48,7 @@ try {
   `);
   db.prepare('INSERT INTO workflow_import_batches VALUES (1,\'2026-08-28\',\'2026-08-28T03:00:00Z\')').run();
   db.prepare('INSERT INTO orders VALUES (1,\'5110-20260811002\',0,\'2026-08-20\',NULL)').run();
-  db.prepare('INSERT INTO workflow_snapshots VALUES (1,1,?,?,?,?,?)')
+  db.prepare('INSERT INTO workflow_snapshots VALUES (1,1,?,?,?,?)')
     .run('5110-20260811002', JSON.stringify({delivery_qty: 100000}), '2026-08-20', null);
 
   const backfill = vm.runInNewContext(`(function(){${fnSource}\n return backfillOrderShippingQuantities; })()`, { db });
