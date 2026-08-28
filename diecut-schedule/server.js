@@ -601,7 +601,7 @@ function extractWorkflowRow(row, index, productMap, excelContext = {}) {
     '品名','产品名称','物料名称','产品名','product_name','item name'
   ])) || normalizeImportText(product?.product_name) || normalizeImportText(excelContext.productNames?.get(productCode));
   const quantity = numberOr(findImportValue(row, [
-    '工单数量','订单数量','需求数量','生产数量','计划数量','数量','qty','pcs','预计产量'
+    '工单数量','订单数量','需求数量','生产数量','预计计划量','计划数量','数量','qty','pcs','预计产量'
   ]), 0);
   const shippingQuantity = numberOr(findImportValue(row, [
     '出货数量','已出货数量','交货数量','发货数量','shipping_quantity','shipping quantity'
@@ -1033,6 +1033,7 @@ app.post('/api/workflow/import', requireEdit, (req,res)=>{
 });
 
 
+// V5.1.4-WORKFLOW-FIELDS-VERIFIED
 app.get('/api/workflow/board', requireAuth, (req,res)=>{
   try{
     const stage=WORKFLOW_STAGE_ORDER.includes(String(req.query?.stage))?String(req.query.stage):'shortage';
@@ -1045,8 +1046,12 @@ app.get('/api/workflow/board', requireAuth, (req,res)=>{
       SELECT o.id order_id,COALESCE(o.order_number,snap.work_order_number) order_number,
              COALESCE(o.product_code,snap.product_code) product_code,
              COALESCE(o.product_name,snap.product_name) product_name,
-             COALESCE(snap.quantity,o.quantity,0) quantity,COALESCE(o.shipping_quantity,0) shipping_quantity,o.status order_status,
-             snap.shipping_required_date,snap.delivery_date,
+             CASE WHEN COALESCE(snap.quantity,0)>0 THEN snap.quantity ELSE COALESCE(o.quantity,0) END quantity,
+             CASE WHEN COALESCE(o.shipping_quantity,0)>0 THEN o.shipping_quantity
+                  ELSE COALESCE(CAST(json_extract(snap.raw_json,'$.shipping_quantity') AS REAL),CAST(json_extract(snap.raw_json,'$.delivery_qty') AS REAL),0) END shipping_quantity,
+             o.status order_status,
+             COALESCE(NULLIF(TRIM(snap.shipping_required_date),''),o.shipping_required_date) shipping_required_date,
+             COALESCE(NULLIF(TRIM(snap.delivery_date),''),o.delivery_date) delivery_date,
              o.priority,o.mold,o.process,o.capacity,o.mold_change_time,
              snap.stage workflow_stage,snap.status_text workflow_status_text,snap.expected_date workflow_expected_date,
              snap.production_progress workflow_production_progress,snap.material_status workflow_material_status,snap.shortage_detail workflow_shortage_detail,
