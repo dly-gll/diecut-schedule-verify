@@ -283,6 +283,29 @@ backfillOrderShippingQuantities();
 // V5.1.5-WORKFLOW-LEGACY-FIELD-BACKFILL
 // 兼容已经导入过的现场标准表：旧版本可能把“预计产量/出货数量/要求出货日期”留在 raw_json.status_text。
 // 当前看板仍应从这些真实字段恢复，不要求用户重新整理数据库。
+// V5.1.6-WORKFLOW-BOARD-RUNTIME-FALLBACK
+// 看板读取时直接从当前批次快照的原始“在制工单明细”文本恢复现场标准表字段。
+// 这样即使旧数据库的 snapshot.quantity/shipping_quantity 没有回填，也不会再显示 0/0/-。
+function applyWorkflowBoardLegacyFieldFallback(row) {
+  const out = { ...row };
+  const fields = String(out.workflow_status_text || '').split('|').map(v => String(v ?? '').trim());
+  const legacyQuantity = numberOr(fields[8], NaN);
+  const legacyShippingQuantity = numberOr(fields[14], NaN);
+  const legacyShippingDate = normalizeImportedDate(fields[15]);
+
+  if (!(Number(out.quantity) > 0) && Number.isFinite(legacyQuantity) && legacyQuantity > 0) {
+    out.quantity = legacyQuantity;
+  }
+  if (!(Number(out.shipping_quantity) > 0) && Number.isFinite(legacyShippingQuantity) && legacyShippingQuantity >= 0) {
+    out.shipping_quantity = legacyShippingQuantity;
+  }
+  if ((!out.shipping_required_date || !String(out.shipping_required_date).trim()) && legacyShippingDate) {
+    out.shipping_required_date = legacyShippingDate;
+  }
+
+  return out;
+}
+
 function backfillWorkflowLegacyBoardFields() {
   const latestBatch = db.prepare('SELECT id FROM workflow_import_batches ORDER BY id DESC LIMIT 1').get();
   if (!latestBatch) return 0;
@@ -779,6 +802,7 @@ function extractWorkflowRow(row, index, productMap, excelContext = {}) {
 
 
 
+
 function workflowStageRank(stage) { return WORKFLOW_STAGE_ORDER.indexOf(stage) >= 0 ? WORKFLOW_STAGE_ORDER.indexOf(stage) : 0; }
 
 function getWorkflowOrderRow(orderNumber, productCode) {
@@ -1141,7 +1165,7 @@ app.get('/api/workflow/board', requireAuth, (req,res)=>{
         CASE WHEN NULLIF(TRIM(snap.delivery_date),'') IS NULL THEN NULL ELSE date(snap.delivery_date) END,
         CASE WHEN NULLIF(TRIM(snap.expected_date),'') IS NULL THEN 1 ELSE 0 END,
         CASE WHEN NULLIF(TRIM(snap.expected_date),'') IS NULL THEN NULL ELSE date(snap.expected_date) END,
-        o.id ASC`).all(latestBatch.id,stage);
+        o.id ASC`).all(latestBatch.id,stage).map(applyWorkflowBoardLegacyFieldFallback);
     // “欠料”页面只展示工单级欠料；品号级出货欠数留给排程算法，不返回到看板。
     const alertDateLabel = stage === 'shortage' ? '预计齐料日期'
       : stage === 'available_to_issue' ? '预计发料日期'
