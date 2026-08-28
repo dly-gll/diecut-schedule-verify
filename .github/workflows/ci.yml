@@ -38,6 +38,8 @@ jobs:
         run: node ../tools/repair-board-row-runtime.js
       - name: Apply product machine priority repair
         run: node ../tools/repair-product-machine-priority.js
+      - name: Apply import data isolation repair
+        run: node ../tools/repair-import-data-isolation.js
       - name: Commit verified source repair
         run: |
           git config user.name "github-actions[bot]"
@@ -45,7 +47,7 @@ jobs:
           cd ..
           if ! git diff --quiet -- diecut-schedule/server.js diecut-schedule/public/index.html; then
             git add diecut-schedule/server.js diecut-schedule/public/index.html
-            git commit -m "Fix verified workflow board fields"
+            git commit -m "Enforce page-owned Excel imports"
             git fetch origin main
             git rebase origin/main
             git push origin HEAD:main
@@ -55,6 +57,7 @@ jobs:
       - run: npm run lint
       - run: node ../test-workflow-board.js
       - run: node ../test-product-machine-priority.js
+      - run: node ../test-import-data-scope.js
       - run: node ../test-ui-features.js
       - name: Package verified source
         run: |
