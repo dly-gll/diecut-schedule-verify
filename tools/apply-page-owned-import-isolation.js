@@ -124,10 +124,16 @@ if (!server.includes("app.post('/api/machines/batch-import'")) {
   server = server.slice(0, insertAt) + machineRoute + server.slice(insertAt);
 }
 
+// 5. Preserve the existing product-machine priority behavior: Excel “设备” is a fallback,
+// while product_data.process remains the preferred device source when present.
+const processOld = "  let process = normalizeImportText(findImportValue(row, [\n    'process','工艺','制程','工序','process'\n  ]));";
+const processNew = "  let process = normalizeImportText(findImportValue(row, [\n    'process','工艺','制程','工序','设备','设备名称','设备编号','机台配置','机台','机台号','机器','机器编号','生产设备'\n  ]));";
+if (server.includes(processOld)) server = server.replace(processOld, processNew);
+
 if (!server.includes(marker)) server += `\n${marker}\n`;
 fs.writeFileSync(serverFile, server);
 
-// 5. Explicit page ownership in the browser payloads.
+// 6. Attach owner to browser upload requests.
 index = index.replace(/body: JSON\.stringify\(\{ filename:file\.name, rows:all, snapshot_date:new Date\(\)\.toISOString\(\)\.slice\(0,10\) \}\)/g,
   "body: JSON.stringify({ filename:file.name, rows:all, snapshot_date:new Date().toISOString().slice(0,10), source_page:'orders' })");
 index = index.replace(/body:JSON\.stringify\(\{filename:file\.name,rows:all,snapshot_date:new Date\(\)\.toISOString\(\)\.slice\(0,10\)\}\)/g,
@@ -137,11 +143,11 @@ index = index.replace(/body: JSON\.stringify\(\{ products \}\)/g,
 index = index.replace(/body: JSON\.stringify\(\{ orders: chunk \}\)/g,
   "body: JSON.stringify({ orders: chunk, source_page:'orders' })");
 
-// 6. Add Device Management page Excel button/function only if absent.
+// 7. Device Management page gets its own Excel button/function.
 if (!index.includes('onchange="importMachines(this)"')) {
-  const literal = '<div class="card-header">设备管理 ${currentUser.role!==\'viewer\'?\'<button class="btn btn-sm btn-primary" onclick="showMachineModal()">新增设备</button>\':\'\'}</div>';
-  const replacement = '<div class="card-header">设备管理 ${currentUser.role!==\'viewer\'?\'<div><label class="btn btn-sm btn-outline-info me-2"><input type="file" hidden accept=".xlsx,.xls" onchange="importMachines(this)">导入Excel</label><button class="btn btn-sm btn-primary" onclick="showMachineModal()">新增设备</button></div>\':\'\'}</div>';
-  if (index.includes(literal)) index = index.replace(literal, replacement);
+  const oldHeader = '<div class="card-header">设备管理 ${currentUser.role!==\\'viewer\\'?\\'<button class="btn btn-sm btn-primary" onclick="showMachineModal()">新增设备</button>\\':\\'\\'}</div>';
+  const newHeader = '<div class="card-header">设备管理 ${currentUser.role!==\\'viewer\\'?\\'<div><label class="btn btn-sm btn-outline-info me-2"><input type="file" hidden accept=".xlsx,.xls" onchange="importMachines(this)">导入Excel</label><button class="btn btn-sm btn-primary" onclick="showMachineModal()">新增设备</button></div>\\':\\'\\'}</div>';
+  if (index.includes(oldHeader)) index = index.replace(oldHeader, newHeader);
 }
 
 if (!index.includes('async function importMachines(input)')) {
