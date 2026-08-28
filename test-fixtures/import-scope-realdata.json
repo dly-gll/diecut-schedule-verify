@@ -1,0 +1,37 @@
+{
+  "source_workbook_name": "每日生产计划排程及进度表(26) 的副本(2).xlsx",
+  "sheet_names": [
+    "8.21销货明细",
+    "8.22库存明细",
+    "8.22待检产品",
+    "每日急件满足进度",
+    "8.22在制工单明细",
+    "模数跳距"
+  ],
+  "work_order_sheet": {
+    "sheet_name": "8.22在制工单明细",
+    "required_headers": [
+      "生产工单",
+      "产品品号",
+      "品名",
+      "预计产量",
+      "出货数量",
+      "要求出货时间",
+      "生产进度",
+      "是否齐料",
+      "欠料明细"
+    ]
+  },
+  "real_data_snapshot": {
+    "machines": 43,
+    "product_data": 3848,
+    "orders": 92,
+    "workflow_import_batches": 31,
+    "notes": "Counts and schema are derived from the user's supplied data.db; no business rows or values are stored in this public fixture."
+  },
+  "expected_ownership": {
+    "orders_page": ["orders", "workflow_snapshots", "product_supply"],
+    "machines_page": ["machines"],
+    "products_page": ["product_data"]
+  }
+}
