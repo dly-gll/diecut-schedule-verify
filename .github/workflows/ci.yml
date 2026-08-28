@@ -30,14 +30,14 @@ jobs:
         run: node ../tools/repair-shipping-quantity.js
       - name: Apply workflow field priority repair
         run: node ../tools/repair-workflow-fields.js
-      - name: Apply product machine priority repair
-        run: node ../tools/repair-product-machine-priority.js
       - name: Ensure workflow snapshot shipping quantity column
         run: node ../tools/ensure-workflow-shipping-column.js
       - name: Apply real board data fallback repair
         run: node ../tools/repair-real-board-data.js
       - name: Apply runtime board row fallback repair
         run: node ../tools/repair-board-row-runtime.js
+      - name: Apply product machine priority repair
+        run: node ../tools/repair-product-machine-priority.js
       - name: Commit verified source repair
         run: |
           git config user.name "github-actions[bot]"
