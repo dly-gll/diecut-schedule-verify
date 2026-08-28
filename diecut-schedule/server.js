@@ -1366,7 +1366,7 @@ function autoNormalizeImportedOrder(row, index, productMap) {
     'machine_tokens','可用设备','设备','设备名称','设备编号','机台配置','机台','机台号','机器','机器编号','生产设备','machine','machine name'
   ]));
   let process = normalizeImportText(findImportValue(row, [
-    'process','工艺','制程','工序','process'
+    'process','工艺','制程','工序','设备','设备名称','设备编号','机台配置','机台','机台号','机器','机器编号','生产设备'
   ]));
   let mold = normalizeImportText(findImportValue(row, [
     'mold','刀模','刀模号','刀模编号','模具','模具号','模具编号','die','diecut mold'
