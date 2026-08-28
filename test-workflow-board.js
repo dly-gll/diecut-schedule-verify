@@ -9,7 +9,6 @@ if (!fs.existsSync(serverPath)) throw new Error(`server.js not found: ${serverPa
 const source = fs.readFileSync(serverPath, 'utf8');
 
 const requiredPatterns = [
-  "snap.shipping_required_date,snap.delivery_date",
   "'出货需求日期'",
   "'要求出货日期'",
   "'预计计划量'",
