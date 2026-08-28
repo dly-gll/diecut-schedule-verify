@@ -32,7 +32,9 @@ jobs:
           if ! git diff --quiet -- diecut-schedule/server.js; then
             git add diecut-schedule/server.js
             git commit -m "Fix workflow shipping quantity synchronization"
-            git push
+            git fetch origin main
+            git rebase origin/main
+            git push origin HEAD:main
           fi
       - run: npm ci
       - run: npm run check
