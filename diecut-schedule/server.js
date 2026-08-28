@@ -806,6 +806,7 @@ function extractWorkflowRow(row, index, productMap, excelContext = {}) {
 
 
 
+
 function workflowStageRank(stage) { return WORKFLOW_STAGE_ORDER.indexOf(stage) >= 0 ? WORKFLOW_STAGE_ORDER.indexOf(stage) : 0; }
 
 function getWorkflowOrderRow(orderNumber, productCode) {
@@ -1403,12 +1404,13 @@ function autoNormalizeImportedOrder(row, index, productMap) {
     'material_ready_at','物料齐套时间','物料到位时间','材料齐套','备料完成时间','材料就绪时间'
   ])) || null;
 
-  // V5.1.6-PRODUCT-MACHINE-PRIORITY
-  // 工单导入设备选择：产品数据按品号命中且存在设备时，产品数据设备优先；
-  // 产品数据没有设备时，才保留 Excel 中的设备。
+  // V5.1.7-PRODUCT-DATA-EQUIPMENT-PRIORITY
+  // 工单导入设备规则：先按品号匹配产品数据；产品数据“设备”有值时优先使用该设备，
+  // 产品数据“可用设备/机台”有值时同时优先使用；只有产品数据对应字段为空时才回退 Excel。
   if (product) {
-    if (!process) process = normalizeImportText(product.process);
+    const productDevice = normalizeImportText(product.process);
     const productMachines = normalizeImportText(product.machines);
+    if (productDevice) process = productDevice;
     if (productMachines) machineTokens = productMachines;
     if (!mold) mold = normalizeImportText(product.mold);
     if (!(capacity > 0)) capacity = numberOr(product.capacity, 1000);
