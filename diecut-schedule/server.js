@@ -725,7 +725,9 @@ function extractWorkflowRow(row, index, productMap, excelContext = {}) {
   const shippingGap = Number.isFinite(precomputedGap) ? precomputedGap : (Number.isFinite(computedGap) ? computedGap : null);
 
   let mold = normalizeImportText(findImportValue(row, ['刀模','刀模号','刀模编号','模具','模具号','模具编号','mold','die']));
-  let process = normalizeImportText(findImportValue(row, ['工艺','制程','工序','process']));
+  let process = normalizeImportText(findImportValue(row, [
+    'process','工艺','制程','工序','设备','设备名称','设备编号','机台配置','机台','机台号','机器','机器编号','生产设备'
+  ]));
   let machineTokens = normalizeImportText(findImportValue(row, ['机台配置','设备','设备名称','设备编号','机台','机台号','机器','生产设备','machine','machine name']));
   let capacity = numberOr(findImportValue(row, ['产能','UPH','uph','PCS/H','pcs/h','每小时产能','标准产能']), 0);
   let moldChange = numberOr(findImportValue(row, ['换模时间','换刀模时间','换模分钟','setup time','setup minutes']), 0);
@@ -793,6 +795,7 @@ function extractWorkflowRow(row, index, productMap, excelContext = {}) {
     row_index: index + 2
   };
 }
+
 
 
 
@@ -1407,7 +1410,7 @@ function autoNormalizeImportedOrder(row, index, productMap) {
     'material_ready_at','物料齐套时间','物料到位时间','材料齐套','备料完成时间','材料就绪时间'
   ])) || null;
 
-  // V5.1.7-PRODUCT-DATA-EQUIPMENT-PRIORITY
+  // V5.1.8-PRODUCT-DATA-EQUIPMENT-PRIORITY
   // 工单导入设备规则：先按品号匹配产品数据；产品数据“设备”有值时优先使用该设备，
   // 产品数据“可用设备/机台”有值时同时优先使用；只有产品数据对应字段为空时才回退 Excel。
   if (product) {
@@ -1419,8 +1422,6 @@ function autoNormalizeImportedOrder(row, index, productMap) {
     if (!(capacity > 0)) capacity = numberOr(product.capacity, 1000);
     if (!(moldChange >= 0)) moldChange = numberOr(product.mold_change_time, 30);
   }
-  if (!(capacity > 0)) capacity = 1000;
-  if (!(moldChange >= 0)) moldChange = 30;
 
   const remark = normalizeImportText(findImportValue(row, ['remark','备注','说明','备注说明','comment','note']));
   const missing = [];
