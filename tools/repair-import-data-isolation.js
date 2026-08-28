@@ -10,73 +10,80 @@ let index = fs.readFileSync(indexFile, 'utf8');
 
 const marker = '// V5.2-IMPORT-DATA-SCOPE-ISOLATION';
 
-function replaceOnce(source, pattern, replacement, label) {
-  if (!pattern.test(source)) throw new Error(`Patch target not found: ${label}`);
-  return source.replace(pattern, replacement);
+function fail(message) { throw new Error(message); }
+function mustReplace(source, regex, replacement, label) {
+  if (!regex.test(source)) fail(`Patch target not found: ${label}`);
+  return source.replace(regex, replacement);
 }
 
-// ---- server.js: order/workflow import must never write master-data tables ----
-if (!server.includes(marker)) {
-  const workflowRouteRegex = /app\.post\('\/api\/workflow\/import',[\s\S]*?\n\}\);\n\n\n\/\/ V5\.1\.4-WORKFLOW-FIELDS-VERIFIED/;
-  const workflowMatch = server.match(workflowRouteRegex);
-  if (!workflowMatch) throw new Error('Workflow import route not found');
-  let workflowRoute = workflowMatch[0];
+// 1) Workflow/production workbook import is owned by Orders page, but reads master data only.
+const workflowStart = server.indexOf("app.post('/api/workflow/import'");
+const workflowEndMarker = "// V5.1.4-WORKFLOW-FIELDS-VERIFIED";
+const workflowEnd = server.indexOf(workflowEndMarker, workflowStart);
+if (workflowStart < 0 || workflowEnd < 0) fail('Workflow import route boundary not found');
+let workflow = server.slice(workflowStart, workflowEnd);
 
-  workflowRoute = replaceOnce(
-    workflowRoute,
+if (!workflow.includes("req.body?.source_page !== 'orders'")) {
+  workflow = mustReplace(
+    workflow,
     /(const filename=String\(req\.body\?\.filename \|\| 'workflow\.xlsx'\)\.slice\(0,200\);)/,
     "$1\n    if (req.body?.source_page !== 'orders') return res.status(403).json({success:false,message:'工作流Excel只能从订单管理页面导入'});",
-    'workflow source_page guard'
+    'workflow source ownership guard'
   );
+}
 
-  workflowRoute = replaceOnce(
-    workflowRoute,
-    /\n    const excelContext=buildWorkflowExcelContext\(rows\);/,
-    "\n    const excelContext=buildWorkflowExcelContext(rows);\n    // V5.2 数据归属隔离：订单/工作流导入只读取产品主数据，不得把Excel反向写入 product_data。",
-    'workflow isolation comment'
-  );
+// Delete the block which upserts Excel-derived rows into product_data. Product master is read-only here.
+workflow = workflow.replace(/\n    \/\/ 自动把刀模\/工艺\/模数跳距写回产品主数据，设备字段单独保存\。[\s\S]*?\n    productTx\(\);\n\n    \/\/ 重新加载主数据，确保“品号→刀模\/工艺\/设备”匹配使用最新结果。\n    const mergedRows=db\.prepare\('SELECT \* FROM product_data'\)\.all\(\);\n    const mergedMap=new Map\(mergedRows\.map\(p=>\[normalizeProductCode\(p\.product_code\),p\]\)\);\n    const normalized=workRows\.map\(\(r,i\)=>extractWorkflowRow\(r,i,mergedMap,excelContext\)\);/, "\n    // V5.2: 订单工作簿只读取产品主数据，绝不反向写入 product_data。\n    const productRows=db.prepare('SELECT * FROM product_data').all();\n    const productMap=new Map(productRows.map(p=>[normalizeProductCode(p.product_code),p]));\n    const normalized=workRows.map((r,i)=>extractWorkflowRow(r,i,productMap,excelContext));");
 
-  // Remove the old Excel -> product_data write-back block.
-  workflowRoute = replaceOnce(
-    workflowRoute,
-    /\n    const productRows=db\.prepare\('SELECT \* FROM product_data'\)\.all\(\);\n    const productMap=new Map\(productRows\.map\(p=>\[normalizeProductCode\(p\.product_code\),p\]\)\);\n    for \(const \[code,p\] of excelContext\.products\) \{[\s\S]*?\n    productTx\(\);\n\n    \/\/ 重新加载主数据，确保“品号→刀模\/工艺\/设备”匹配使用最新结果。\n    const mergedRows=db\.prepare\('SELECT \* FROM product_data'\)\.all\(\);\n    const mergedMap=new Map\(mergedRows\.map\(p=>\[normalizeProductCode\(p\.product_code\),p\]\)\);\n    const normalized=workRows\.map\(\(r,i\)=>extractWorkflowRow\(r,i,mergedMap,excelContext\)\);/,
-    "\n    // 订单/工作流导入只能读取当前产品主数据；Excel中的刀模基表、设备、模数跳距等字段不得回写主数据。\n    const productRows=db.prepare('SELECT * FROM product_data').all();\n    const productMap=new Map(productRows.map(p=>[normalizeProductCode(p.product_code),p]));\n    const normalized=workRows.map((r,i)=>extractWorkflowRow(r,i,productMap,excelContext));",
-    'workflow product-data write-back removal'
-  );
+if (/INSERT INTO product_data|UPDATE product_data|upsertProduct|productTx\(\)/i.test(workflow)) {
+  fail('Workflow import still contains product_data write-back code');
+}
 
-  server = server.replace(workflowRouteRegex, workflowRoute);
+server = server.slice(0, workflowStart) + workflow + server.slice(workflowEnd);
 
-  // Only the products page may call the product-data import endpoint.
-  server = replaceOnce(
-    server,
-    /(app\.post\('\/api\/product-data\/batch-import', requireEdit, \(req, res\) => \{\n  try \{\n    const \{ products \} = req\.body;)/,
-    "$1\n    if (req.body?.source_page !== 'products') return res.status(403).json({ success:false, message:'产品数据Excel只能从产品数据页面导入' });",
-    'product import source_page guard'
-  );
-
-  // Only the orders page may call the order batch import endpoint.
-  server = replaceOnce(
-    server,
-    /(app\.post\('\/api\/orders\/batch-import', requireEdit, \(req, res\) => \{\n  try \{\n    const \{ orders \} = req\.body;)/,
+// 2) Order batch and normalize imports are owned by Orders page only.
+const orderBatchStart = server.indexOf("app.post('/api/orders/batch-import'");
+const orderBatchEnd = server.indexOf("app.get('/api/orders/export'", orderBatchStart);
+if (orderBatchStart < 0 || orderBatchEnd < 0) fail('Order batch import route not found');
+let orderBatch = server.slice(orderBatchStart, orderBatchEnd);
+if (!orderBatch.includes("req.body?.source_page !== 'orders'")) {
+  orderBatch = mustReplace(
+    orderBatch,
+    /(const \{ orders \} = req\.body;)/,
     "$1\n    if (req.body?.source_page !== 'orders') return res.status(403).json({ success:false, message:'订单Excel只能从订单管理页面导入' });",
-    'order import source_page guard'
+    'order batch source ownership guard'
   );
+}
+if (/INSERT INTO product_data|UPDATE product_data|INSERT INTO machines|UPDATE machines/i.test(orderBatch)) fail('Order batch import writes master data');
+server = server.slice(0, orderBatchStart) + orderBatch + server.slice(orderBatchEnd);
 
-  // Device Excel import is a dedicated endpoint owned by the device-management page.
-  const machineAnchor = /app\.delete\('\/api\/machines\/:id',[\s\S]*?\n\}\);\n\n\/\/ ================== 智能排程/;
-  const machineMatch = server.match(machineAnchor);
-  if (!machineMatch) throw new Error('Machine route insertion anchor not found');
+// 3) Product-data import endpoint is owned by Products page only.
+const productImportStart = server.indexOf("app.post('/api/product-data/batch-import'");
+const productImportEnd = server.indexOf("// ================== 设备管理", productImportStart);
+if (productImportStart < 0 || productImportEnd < 0) fail('Product import route not found');
+let productImport = server.slice(productImportStart, productImportEnd);
+if (!productImport.includes("req.body?.source_page !== 'products'")) {
+  productImport = mustReplace(
+    productImport,
+    /(const \{ products \} = req\.body;)/,
+    "$1\n  if (req.body?.source_page !== 'products') return res.status(403).json({ success:false, message:'产品数据Excel只能从产品数据页面导入' });",
+    'product source ownership guard'
+  );
+}
+server = server.slice(0, productImportStart) + productImport + server.slice(productImportEnd);
+
+// 4) Add a dedicated machine Excel endpoint owned by Machines page only.
+if (!server.includes("app.post('/api/machines/batch-import'")) {
+  const machineDeleteEnd = server.indexOf("app.delete('/api/machines/:id'", server.indexOf('// ================== 设备管理'));
+  const machineDeleteBlockEnd = server.indexOf("// ================== 智能排程", machineDeleteEnd);
+  if (machineDeleteEnd < 0 || machineDeleteBlockEnd < 0) fail('Machine route insertion anchor not found');
   const machineImportRoute = `
-
-// V5.2 设备管理Excel导入：只有设备管理页面允许写入 machines。
+// V5.2: 设备Excel只能由“设备管理”页面写入 machines。
 app.post('/api/machines/batch-import', requireEdit, (req, res) => {
   try {
-    if (req.body?.source_page !== 'machines') {
-      return res.status(403).json({ success:false, message:'设备Excel只能从设备管理页面导入' });
-    }
+    if (req.body?.source_page !== 'machines') return res.status(403).json({ success:false, message:'设备Excel只能从设备管理页面导入' });
     const items = Array.isArray(req.body?.machines) ? req.body.machines : [];
     if (!items.length) return res.status(400).json({ success:false, message:'设备Excel没有可导入的数据' });
-
     const findExisting = db.prepare('SELECT id FROM machines WHERE name=? ORDER BY id ASC LIMIT 1');
     const insert = db.prepare('INSERT INTO machines(name,machine_type,status,remark) VALUES (?,?,?,?)');
     const update = db.prepare('UPDATE machines SET machine_type=?, status=?, remark=? WHERE id=?');
@@ -87,7 +94,8 @@ app.post('/api/machines/batch-import', requireEdit, (req, res) => {
         const name = normalizeImportText(m.name);
         if (!name) continue;
         const type = normalizeImportText(m.machine_type) || '其他设备';
-        const status = ['inactive','停用','禁用','关闭','停机'].includes(String(m.status || '').trim().toLowerCase()) ? 'inactive' : 'active';
+        const rawStatus = String(m.status || '').trim().toLowerCase();
+        const status = ['inactive','停用','禁用','关闭','停机'].includes(rawStatus) ? 'inactive' : 'active';
         const remark = normalizeImportText(m.remark);
         const existing = findExisting.get(name);
         if (existing) {
@@ -100,66 +108,63 @@ app.post('/api/machines/batch-import', requireEdit, (req, res) => {
       }
     });
     tx();
-    audit(req, 'import', 'machines', '', { source:'excel-machine-page', created, updated, count:items.length });
+    audit(req, 'import', 'machines', '', {source:'excel-machine-page', created, updated, count:items.length});
     io.emit('machine_update');
-    res.json({ success:true, count:items.length, created, updated });
+    res.json({success:true,count:items.length,created,updated});
   } catch (err) {
     console.error('设备Excel导入失败:', err.stack || err.message);
-    res.status(500).json({ success:false, message:'设备Excel导入失败：' + err.message });
+    res.status(500).json({success:false,message:'设备Excel导入失败：'+err.message});
   }
 });
-`;
-  server = server.replace(machineAnchor, machineMatch[0].replace("\n\n// ================== 智能排程", machineImportRoute + "\n// ================== 智能排程"));
 
-  server = server.replace("// V5.2-IMPORT-DATA-SCOPE-ISOLATION", marker);
-  fs.writeFileSync(serverFile, server);
+`;
+  server = server.slice(0, machineDeleteBlockEnd) + machineImportRoute + server.slice(machineDeleteBlockEnd);
 }
 
-// ---- index.html: each management page owns its own Excel import ----
-if (!index.includes(marker)) {
-  // Product page import explicitly declares its owner.
-  index = replaceOnce(
-    index,
-    /(body: JSON\.stringify\(\{ products \}\))/,
-    "body: JSON.stringify({ products, source_page: 'products' })",
-    'product import source_page payload'
-  );
+// 5) Order imports must never auto-create equipment in machines. Scheduling only uses registered machines.
+const ensureStart = server.indexOf('function ensureMachinesForOrders');
+const ensureEnd = server.indexOf('\nfunction ', ensureStart + 10);
+if (ensureStart >= 0 && ensureEnd > ensureStart) {
+  const existingBlock = server.slice(ensureStart, ensureEnd);
+  const replacement = `function ensureMachinesForOrders(orders) {
+  // V5.2 数据归属隔离：订单/工作流导入得到的设备只保存在订单字段；绝不自动写入 machines。
+  const existing = db.prepare('SELECT * FROM machines').all();
+  return { machines: existing, created: [] };
+}`;
+  if (!existingBlock.includes('V5.2 数据归属隔离')) {
+    server = server.slice(0, ensureStart) + replacement + server.slice(ensureEnd);
+  }
+}
 
-  // Standard production workbook imported from order management declares orders ownership.
-  index = replaceOnce(
-    index,
-    /(body: JSON\.stringify\(\{ filename:file\.name, rows:all, snapshot_date:new Date\(\)\.toISOString\(\)\.slice\(0,10\) \}\))/,
-    "body: JSON.stringify({ filename:file.name, rows:all, snapshot_date:new Date().toISOString().slice(0,10), source_page:'orders' })",
-    'workflow import source_page payload'
-  );
+// Final server marker.
+if (!server.includes(marker)) server += `\n${marker}\n`;
+fs.writeFileSync(serverFile, server);
 
-  // Normal order import declares orders ownership.
-  index = replaceOnce(
-    index,
-    /(body: JSON\.stringify\(\{ rows \}\))/,
-    "body: JSON.stringify({ rows, source_page: 'orders' })",
-    'order normalize source_page payload'
-  );
+// ---- index.html: explicit page ownership for each Excel upload ----
+function addSourcePayload(source, needleRegex, replacement, label) {
+  if (source.includes(replacement)) return source;
+  return mustReplace(source, needleRegex, replacement, label);
+}
 
-  // Normal order batch import declares orders ownership.
-  index = replaceOnce(
-    index,
-    /(body: JSON\.stringify\(\{ orders: chunk \}\))/,
-    "body: JSON.stringify({ orders: chunk, source_page:'orders' })",
-    'order batch import source_page payload'
-  );
+if (!index.includes("source_page: 'products'")) {
+  index = addSourcePayload(index, /body: JSON\.stringify\(\{ products \}\)/, "body: JSON.stringify({ products, source_page: 'products' })", 'product payload owner');
+}
+if (!index.includes("source_page:'orders'")) {
+  index = addSourcePayload(index, /body: JSON\.stringify\(\{ filename:file\.name, rows:all, snapshot_date:new Date\(\)\.toISOString\(\)\.slice\(0,10\) \}\)/, "body: JSON.stringify({ filename:file.name, rows:all, snapshot_date:new Date().toISOString().slice(0,10), source_page:'orders' })", 'workflow payload owner');
+  index = addSourcePayload(index, /body: JSON\.stringify\(\{ rows \}\)/, "body: JSON.stringify({ rows, source_page: 'orders' })", 'order normalize payload owner');
+}
+if (!index.includes("source_page:'orders'")) {
+  index = addSourcePayload(index, /body: JSON\.stringify\(\{ orders: chunk \}\)/, "body: JSON.stringify({ orders: chunk, source_page:'orders' })", 'order batch payload owner');
+} else if (!index.includes('source_page:') || !index.includes('orders: chunk, source_page')) {
+  // Still patch the chunk call specifically when the first orders marker came from workflow/normalize.
+  if (!index.includes('orders: chunk, source_page')) {
+    index = addSourcePayload(index, /body: JSON\.stringify\(\{ orders: chunk \}\)/, "body: JSON.stringify({ orders: chunk, source_page:'orders' })", 'order batch payload owner');
+  }
+}
 
-  // Add device Excel button to the device-management page.
-  index = replaceOnce(
-    index,
-    /(<div class="card-header">设备管理 \$\{currentUser\.role!='viewer'\?'\<button class="btn btn-sm btn-primary" onclick="showMachineModal\(\)"\>新增设备<\/button>':''\}<\/div>)/,
-    "<div class=\"card-header\">设备管理 ${currentUser.role!=='viewer'?'<div><button class=\"btn btn-sm btn-primary me-1\" onclick=\"showMachineModal()\">新增设备</button><label class=\"btn btn-sm btn-outline-info\"><input type=\"file\" hidden accept=\".xlsx,.xls\" onchange=\"importMachines(this)\">导入Excel</label></div>':''}</div>",
-    'machine page import button'
-  );
-
-  // Add the dedicated machine import function immediately before the schedule-board section.
+if (!index.includes('async function importMachines(input)')) {
   const machineFunction = `
-    // 设备管理Excel导入：只有当前“设备管理”页面可以写入 machines。
+    // V5.2: 设备管理页面专属Excel导入；不会由订单/工作流页面触发。
     async function importMachines(input) {
       const file = input.files[0];
       if (!file) return;
@@ -178,31 +183,31 @@ if (!index.includes(marker)) {
           remark: row['备注'] || row['说明'] || row['remark'] || ''
         })).filter(x => String(x.name).trim());
         if (!machines.length) throw new Error('未识别到有效设备数据，请使用“设备名称/设备”列');
-        const result = await apiJson('/api/machines/batch-import', {
-          method:'POST',
-          headers:{'Content-Type':'application/json'},
-          body:JSON.stringify({ machines, source_page:'machines' })
-        });
+        const result = await apiJson('/api/machines/batch-import', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({machines,source_page:'machines'}) });
         hideLoading();
-        showToast(
-          `设备Excel导入完成：${result.count || machines.length} 条，新增 ${result.created || 0} 台，更新 ${result.updated || 0} 台`,
-          'success'
-        );
+        showToast(`设备Excel导入完成：${result.count || machines.length} 条，新增 ${result.created || 0} 台，更新 ${result.updated || 0} 台`,'success');
         loadMachines();
       } catch (err) {
         hideLoading();
         console.error('设备Excel导入失败', err);
-        showToast(err.message || '设备Excel导入失败', 'danger');
-      } finally {
-        input.value='';
-      }
+        showToast(err.message || '设备Excel导入失败','danger');
+      } finally { input.value=''; }
     }
 
 `;
-  index = replaceOnce(index, /\n    \/\/ ========== 排产看板 ==========/, `\n${machineFunction}    // ========== 排产看板 ==========`, 'machine import function anchor');
-
-  index = index.replace("// V5.2-IMPORT-DATA-SCOPE-ISOLATION", marker);
-  fs.writeFileSync(indexFile, index);
+  const anchor = /\n    \/\/ ========== 排产看板 ==========/;
+  index = mustReplace(index, anchor, `\n${machineFunction}    // ========== 排产看板 ==========`, 'machine import function anchor');
 }
+
+if (!index.includes('onchange="importMachines(this)"')) {
+  const headerRegex = /<div class="card-header">设备管理[\s\S]*?<\/div>\n\s*<div class="card-body"><table class="table" id="machinesTable">/;
+  index = mustReplace(index, headerRegex, (m) => {
+    if (m.includes('importMachines(this)')) return m;
+    return m.replace(/设备管理[^<]*<\/div>/, `设备管理 ${currentUser.role!=='viewer'?'<div><button class="btn btn-sm btn-primary me-1" onclick="showMachineModal()">新增设备</button><label class="btn btn-sm btn-outline-info"><input type="file" hidden accept=".xlsx,.xls" onchange="importMachines(this)">导入Excel</label></div>':''}</div>`);
+  }, 'machine import button anchor');
+}
+
+if (!index.includes(marker)) index += `\n${marker}\n`;
+fs.writeFileSync(indexFile, index);
 
 console.log('IMPORT_DATA_SCOPE_ISOLATION_APPLIED');
