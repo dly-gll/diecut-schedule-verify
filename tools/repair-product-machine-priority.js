@@ -18,22 +18,31 @@ const newBlock = `  // V5.1.8-PRODUCT-DATA-EQUIPMENT-PRIORITY
     if (!(moldChange >= 0)) moldChange = numberOr(product.mold_change_time, 30);
   }`;
 
-// 1) 无论源码当前是旧版 V5.1.6、旧版 V5.1.7，还是已经有 V5.1.8，都强制规范成当前规则。
+// 只在 autoNormalizeImportedOrder() 内修改，避免误改 workflow 解析器中的 process 字段。
+const start = source.indexOf('function autoNormalizeImportedOrder');
+const end = source.indexOf("app.post('/api/orders/import-normalize'", start);
+if (start < 0 || end < 0) throw new Error('autoNormalizeImportedOrder source range not found');
+const fn = source.slice(start, end);
+
+// 1) 替换当前函数中的产品数据设备优先块；支持 V5.1.6/7/8 和旧版补齐块。
 const currentBlockRegex = /  \/\/ V5\.1\.(?:6|7|8)-PRODUCT-(?:MACHINE|DATA-EQUIPMENT)-PRIORITY[\s\S]*?\n  if \(!\(moldChange >= 0\)\) moldChange = 30;/;
-if (currentBlockRegex.test(source)) {
-  source = source.replace(currentBlockRegex, newBlock);
+const legacyBlock = `  // V5 自动反查产品主数据补齐：设备、刀模、产能、换模时间、品名、工艺。\n  if (product) {\n    if (!process) process = normalizeImportText(product.process);\n    if (!machineTokens) machineTokens = normalizeImportText(product.machines);\n    if (!mold) mold = normalizeImportText(product.mold);\n    if (!(capacity > 0)) capacity = numberOr(product.capacity, 1000);\n    if (!(moldChange >= 0)) moldChange = numberOr(product.mold_change_time, 30);\n  }`;
+let fn2 = fn;
+if (currentBlockRegex.test(fn2)) {
+  fn2 = fn2.replace(currentBlockRegex, newBlock);
+} else if (fn2.includes(legacyBlock)) {
+  fn2 = fn2.replace(legacyBlock, newBlock);
 } else {
-  // 兼容已知正常版中原始的产品主数据补齐代码块。
-  const legacyBlock = `  // V5 自动反查产品主数据补齐：设备、刀模、产能、换模时间、品名、工艺。\n  if (product) {\n    if (!process) process = normalizeImportText(product.process);\n    if (!machineTokens) machineTokens = normalizeImportText(product.machines);\n    if (!mold) mold = normalizeImportText(product.mold);\n    if (!(capacity > 0)) capacity = numberOr(product.capacity, 1000);\n    if (!(moldChange >= 0)) moldChange = numberOr(product.mold_change_time, 30);\n  }`;
-  if (!source.includes(legacyBlock)) throw new Error('Product data equipment priority patch target not found');
-  source = source.replace(legacyBlock, newBlock);
+  throw new Error('Product data equipment priority block not found inside autoNormalizeImportedOrder');
 }
 
-// 2) 页面“设备”实际显示 orders.process；产品数据没有设备时，Excel“设备”必须回退到 process。
-const processRegex = /  let process = normalizeImportText\(findImportValue\(row, \[[\s\S]*?\]\)\);/;
-const desiredProcess = "  let process = normalizeImportText(findImportValue(row, [\n    'process','工艺','制程','工序','设备','设备名称','设备编号','机台配置','机台','机台号','机器','机器编号','生产设备'\n  ]));";
-if (!processRegex.test(source)) throw new Error('Excel equipment process fallback target not found');
-source = source.replace(processRegex, desiredProcess);
+// 2) 精确修改 autoNormalizeImportedOrder 中的 process 读取，让 Excel“设备”在产品数据无设备时回退。
+const processStart = fn2.indexOf('  let process = normalizeImportText(findImportValue(row, [');
+const processEnd = fn2.indexOf('  ]));', processStart);
+if (processStart < 0 || processEnd < 0) throw new Error('autoNormalizeImportedOrder process field target not found');
+const processReplacement = "  let process = normalizeImportText(findImportValue(row, [\n    'process','工艺','制程','工序','设备','设备名称','设备编号','机台配置','机台','机台号','机器','机器编号','生产设备'\n  ]));";
+fn2 = fn2.slice(0, processStart) + processReplacement + fn2.slice(processEnd + '  ]));'.length);
 
+source = source.slice(0, start) + fn2 + source.slice(end);
 fs.writeFileSync(file, source);
 console.log(marker + '_APPLIED');
