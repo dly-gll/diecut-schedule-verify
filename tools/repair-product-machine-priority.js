@@ -20,7 +20,8 @@ const oldBlock = `  // V5 自动反查产品主数据补齐：设备、刀模、
   }`;
 
 const newBlock = `  // V5.1.6-PRODUCT-MACHINE-PRIORITY
-  // 工单导入设备选择规则：产品数据命中且存在设备时，产品数据优先；只有产品数据没有设备时才使用 Excel 设备。
+  // 工单导入设备选择：产品数据按品号命中且存在设备时，产品数据设备优先；
+  // 产品数据没有设备时，才保留 Excel 中的设备。
   if (product) {
     if (!process) process = normalizeImportText(product.process);
     const productMachines = normalizeImportText(product.machines);
