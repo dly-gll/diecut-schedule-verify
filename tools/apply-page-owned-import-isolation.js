@@ -4,21 +4,17 @@ const path = require('path');
 const root = path.join(__dirname, '..', 'diecut-schedule');
 const serverFile = path.join(root, 'server.js');
 const indexFile = path.join(root, 'public', 'index.html');
-
 let server = fs.readFileSync(serverFile, 'utf8');
 let index = fs.readFileSync(indexFile, 'utf8');
 const marker = '// V5.2-IMPORT-DATA-SCOPE-ISOLATION';
 
-function must(ok, message) {
-  if (!ok) throw new Error(message);
-}
+function must(ok, message) { if (!ok) throw new Error(message); }
 
-// 1. Workflow import belongs to Orders page and may only read product_data.
+// Workflow/production Excel import: owned by Orders page; product_data is read-only here.
 const workflowStart = server.indexOf("app.post('/api/workflow/import'");
 const workflowEnd = server.indexOf("\napp.post('/api/", workflowStart + 20);
 must(workflowStart >= 0 && workflowEnd > workflowStart, 'workflow import route not found');
 let workflow = server.slice(workflowStart, workflowEnd);
-
 const filenameLine = "    const filename=String(req.body?.filename || 'workflow.xlsx').slice(0,200);";
 if (!workflow.includes("req.body?.source_page !== 'orders'")) {
   const fi = workflow.indexOf(filenameLine);
@@ -27,17 +23,16 @@ if (!workflow.includes("req.body?.source_page !== 'orders'")) {
     "\n    if (req.body?.source_page !== 'orders') return res.status(403).json({success:false,message:'工作流Excel只能从订单管理页面导入'});" +
     workflow.slice(fi + filenameLine.length);
 }
-
-const productStart = workflow.indexOf("    const productRows=db.prepare('SELECT * FROM product_data').all();");
+const productReadStart = workflow.indexOf("    const productRows=db.prepare('SELECT * FROM product_data').all();");
 const normalizedMarker = "    const normalized=workRows.map((r,i)=>extractWorkflowRow(r,i,mergedMap,excelContext));";
-must(productStart >= 0, 'workflow product-data read anchor not found');
-const normalizedPos = workflow.indexOf(normalizedMarker, productStart);
+must(productReadStart >= 0, 'workflow product-data read anchor not found');
+const normalizedPos = workflow.indexOf(normalizedMarker, productReadStart);
 must(normalizedPos >= 0, 'workflow normalized anchor not found');
 const readOnlyBlock = "    const productRows=db.prepare('SELECT * FROM product_data').all();\n    const productMap=new Map(productRows.map(p=>[normalizeProductCode(p.product_code),p]));\n    const normalized=workRows.map((r,i)=>extractWorkflowRow(r,i,productMap,excelContext));";
-workflow = workflow.slice(0, productStart) + readOnlyBlock + workflow.slice(normalizedPos + normalizedMarker.length);
+workflow = workflow.slice(0, productReadStart) + readOnlyBlock + workflow.slice(normalizedPos + normalizedMarker.length);
 server = server.slice(0, workflowStart) + workflow + server.slice(workflowEnd);
 
-// 2. Orders normalize and batch import belong only to Orders page.
+// Orders normalize/batch import: Orders page only.
 const normalizeStart = server.indexOf("app.post('/api/orders/import-normalize'");
 const batchStart = server.indexOf("app.post('/api/orders/batch-import'");
 must(normalizeStart >= 0 && batchStart > normalizeStart, 'order import routes not found');
@@ -51,7 +46,6 @@ if (!normalizeRoute.includes("req.body?.source_page !== 'orders'")) {
     normalizeRoute.slice(ri + rowsLine.length);
 }
 server = server.slice(0, normalizeStart) + normalizeRoute + server.slice(batchStart);
-
 const batchEnd = server.indexOf("app.get('/api/orders/export'", batchStart);
 must(batchEnd > batchStart, 'order batch end anchor not found');
 let batch = server.slice(batchStart, batchEnd);
@@ -65,7 +59,7 @@ if (!batch.includes("req.body?.source_page !== 'orders'")) {
 }
 server = server.slice(0, batchStart) + batch + server.slice(batchEnd);
 
-// 3. Product Data import belongs only to Products page.
+// Product Data Excel import: Products page only.
 const productImportStart = server.indexOf("app.post('/api/product-data/batch-import'");
 const productImportEnd = server.indexOf('// ================== 设备管理', productImportStart);
 must(productImportStart >= 0 && productImportEnd > productImportStart, 'product import route not found');
@@ -80,12 +74,12 @@ if (!productRoute.includes("req.body?.source_page !== 'products'")) {
 }
 server = server.slice(0, productImportStart) + productRoute + server.slice(productImportEnd);
 
-// 4. Dedicated machine Excel import endpoint, owned by Machines page.
+// Dedicated Device Management Excel endpoint.
 if (!server.includes("app.post('/api/machines/batch-import'")) {
   const scheduleMarker = '// ================== 智能排程';
   const insertAt = server.indexOf(scheduleMarker);
   must(insertAt >= 0, 'schedule marker not found');
-  const machineRoute = [
+  const route = [
     '// V5.2: 设备Excel只能由“设备管理”页面写入 machines。',
     "app.post('/api/machines/batch-import', requireEdit, (req, res) => {",
     '  try {',
@@ -121,19 +115,26 @@ if (!server.includes("app.post('/api/machines/batch-import'")) {
     '});',
     ''
   ].join('\n');
-  server = server.slice(0, insertAt) + machineRoute + server.slice(insertAt);
+  server = server.slice(0, insertAt) + route + server.slice(insertAt);
 }
 
-// 5. Preserve the existing product-machine priority behavior: Excel “设备” is a fallback,
-// while product_data.process remains the preferred device source when present.
-const processOld = "  let process = normalizeImportText(findImportValue(row, [\n    'process','工艺','制程','工序','process'\n  ]));";
-const processNew = "  let process = normalizeImportText(findImportValue(row, [\n    'process','工艺','制程','工序','设备','设备名称','设备编号','机台配置','机台','机台号','机器','机器编号','生产设备'\n  ]));";
-if (server.includes(processOld)) server = server.replace(processOld, processNew);
+// Preserve the existing rule: if product-data device is empty, Excel device remains as fallback.
+const processFnStart = server.indexOf('function autoNormalizeImportedOrder');
+const processFnEnd = server.indexOf("app.post('/api/orders/import-normalize'", processFnStart);
+must(processFnStart >= 0 && processFnEnd > processFnStart, 'autoNormalizeImportedOrder not found');
+let fn = server.slice(processFnStart, processFnEnd);
+const processStart = fn.indexOf('  let process = normalizeImportText(findImportValue(row, [');
+if (processStart >= 0) {
+  const close = fn.indexOf('  ]));', processStart);
+  must(close >= 0, 'process field close not found');
+  const desired = "  let process = normalizeImportText(findImportValue(row, [\n    'process','工艺','制程','工序','设备','设备名称','设备编号','机台配置','机台','机台号','机器','机器编号','生产设备'\n  ]));";
+  fn = fn.slice(0, processStart) + desired + fn.slice(close + '  ]));'.length);
+  server = server.slice(0, processFnStart) + fn + server.slice(processFnEnd);
+}
 
-if (!server.includes(marker)) server += `\n${marker}\n`;
 fs.writeFileSync(serverFile, server);
 
-// 6. Attach owner to browser upload requests.
+// Browser upload ownership.
 index = index.replace(/body: JSON\.stringify\(\{ filename:file\.name, rows:all, snapshot_date:new Date\(\)\.toISOString\(\)\.slice\(0,10\) \}\)/g,
   "body: JSON.stringify({ filename:file.name, rows:all, snapshot_date:new Date().toISOString().slice(0,10), source_page:'orders' })");
 index = index.replace(/body:JSON\.stringify\(\{filename:file\.name,rows:all,snapshot_date:new Date\(\)\.toISOString\(\)\.slice\(0,10\)\}\)/g,
@@ -143,17 +144,16 @@ index = index.replace(/body: JSON\.stringify\(\{ products \}\)/g,
 index = index.replace(/body: JSON\.stringify\(\{ orders: chunk \}\)/g,
   "body: JSON.stringify({ orders: chunk, source_page:'orders' })");
 
-// 7. Device Management page gets its own Excel button/function.
 if (!index.includes('onchange="importMachines(this)"')) {
-  const oldHeader = '<div class="card-header">设备管理 ${currentUser.role!==\\'viewer\\'?\\'<button class="btn btn-sm btn-primary" onclick="showMachineModal()">新增设备</button>\\':\\'\\'}</div>';
-  const newHeader = '<div class="card-header">设备管理 ${currentUser.role!==\\'viewer\\'?\\'<div><label class="btn btn-sm btn-outline-info me-2"><input type="file" hidden accept=".xlsx,.xls" onchange="importMachines(this)">导入Excel</label><button class="btn btn-sm btn-primary" onclick="showMachineModal()">新增设备</button></div>\\':\\'\\'}</div>';
+  const oldHeader = '<div class="card-header">设备管理 ${currentUser.role!==\'viewer\'?\'<button class="btn btn-sm btn-primary" onclick="showMachineModal()">新增设备</button>\':\'\'}</div>';
+  const newHeader = '<div class="card-header">设备管理 ${currentUser.role!==\'viewer\'?\'<div><label class="btn btn-sm btn-outline-info me-2"><input type="file" hidden accept=".xlsx,.xls" onchange="importMachines(this)">导入Excel</label><button class="btn btn-sm btn-primary" onclick="showMachineModal()">新增设备</button></div>\':\'\'}</div>';
   if (index.includes(oldHeader)) index = index.replace(oldHeader, newHeader);
 }
 
 if (!index.includes('async function importMachines(input)')) {
   const anchor = '    // ========== 设备管理 ==========';
   must(index.includes(anchor), 'machine function anchor not found');
-  const fn = [
+  const fnUi = [
     '    // V5.2: 设备管理页面专属Excel导入。',
     '    async function importMachines(input) {',
     '      const file = input.files[0];',
@@ -183,10 +183,8 @@ if (!index.includes('async function importMachines(input)')) {
     '    }',
     ''
   ].join('\n');
-  index = index.replace(anchor, fn + anchor);
+  index = index.replace(anchor, fnUi + anchor);
 }
 
-if (!index.includes(marker)) index += `\n${marker}\n`;
 fs.writeFileSync(indexFile, index);
-
 console.log('PAGE_OWNED_IMPORT_ISOLATION_APPLIED');
