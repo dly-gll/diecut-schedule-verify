@@ -11,6 +11,7 @@ const source = fs.readFileSync(serverPath, 'utf8');
 const requiredPatterns = [
   "'出货需求日期'",
   "'要求出货日期'",
+  "'预计产量'",
   "'预计计划量'",
   "snap.work_order_number IS NULL",
   "snap.stage=?",
@@ -20,6 +21,10 @@ const requiredPatterns = [
   "json_extract(snap.raw_json,'$.shipping_quantity')",
   "json_extract(snap.raw_json,'$.delivery_qty')",
   "CASE WHEN COALESCE(snap.quantity,0)>0 THEN snap.quantity ELSE COALESCE(o.quantity,0) END quantity",
+  "excelContext.shippingRequiredDateByOrder?.get(orderNumber)",
+  "excelContext.deliveryDateByOrder?.get(orderNumber)",
+  "excelContext.urgentShippingDateByOrder?.get(orderNumber)",
+  "excelContext.urgentDeliveryDateByOrder?.get(orderNumber)",
   "// V5.1.4-WORKFLOW-FIELDS-VERIFIED",
   "// V5.1.3-SHIPPING-QTY-BACKFILL",
   "backfillOrderShippingQuantities();"
@@ -27,6 +32,25 @@ const requiredPatterns = [
 for (const pattern of requiredPatterns) {
   if (!source.includes(pattern)) throw new Error(`Missing workflow mapping/repair: ${pattern}`);
 }
+
+// 真实现场 Excel 的核心冲突场景：同一行同时存在“生产数量=0”和“预计产量=300000”。
+const helperStart = source.indexOf('function normalizeImportHeader');
+const helperEnd = source.indexOf('function normalizeImportedDate');
+if (helperStart < 0 || helperEnd < 0) throw new Error('Import helper functions not found');
+const helperSource = source.slice(helperStart, helperEnd);
+const helperContext = { console };
+vm.runInNewContext(`(function(){${helperSource}\n return {normalizeImportHeader, normalizeImportText, normalizeProductCode, findImportValue, findImportValuePriority}; })()`, helperContext);
+const { findImportValuePriority } = helperContext;
+const sampleRow = {
+  '生产数量': 0,
+  '预计产量': 300000,
+  '出货数量': 100000,
+  '要求出货日期': '2026-08-20'
+};
+const quantity = Number(findImportValuePriority(sampleRow, ['预计产量','预计计划量'], ['工单数量','订单数量','需求数量','生产数量','计划数量','数量','qty','pcs']));
+const shippingQuantity = Number(findImportValuePriority(sampleRow, ['出货数量','shipping_quantity','shipping quantity'], ['已出货数量','交货数量','发货数量','delivery quantity']));
+if (quantity !== 300000) throw new Error(`预计产量优先级回归失败：${quantity}`);
+if (shippingQuantity !== 100000) throw new Error(`出货数量回归失败：${shippingQuantity}`);
 
 const boardSqlGuard = /snap\.work_order_number\s+IS\s+NULL\s+\n?\s*OR\s+snap\.id\s*=/;
 if (!boardSqlGuard.test(source)) throw new Error('Workflow board query is missing the NULL work-order guard');
@@ -60,8 +84,8 @@ try {
       shipping_required_date TEXT, delivery_date TEXT
     );
   `);
-  db.prepare('INSERT INTO workflow_import_batches VALUES (1,\'2026-08-28\',\'2026-08-28T03:00:00Z\')').run();
-  db.prepare('INSERT INTO orders VALUES (1,\'5110-20260811002\',0,0,\'2026-08-20\',NULL)').run();
+  db.prepare("INSERT INTO workflow_import_batches VALUES (1,'2026-08-28','2026-08-28T03:00:00Z')").run();
+  db.prepare("INSERT INTO orders VALUES (1,'5110-20260811002',0,0,'2026-08-20',NULL)").run();
   db.prepare('INSERT INTO workflow_snapshots VALUES (1,1,?,?,?,?,?,?)')
     .run('5110-20260811002', JSON.stringify({shipping_quantity: 100000, delivery_qty: 100000}), '2026-08-20', null, 100000, 'waiting_schedule');
 
@@ -73,7 +97,7 @@ try {
     throw new Error(`Shipping quantity backfill failed: ${JSON.stringify(row)}`);
   }
 
-  // Board projection regression: quantity/shipping/date must remain populated from snapshot/order fallbacks.
+  // 看板投影回归：快照/订单兜底必须保留数量、出货数量和日期。
   const boardRow = db.prepare(`
     SELECT
       CASE WHEN COALESCE(snap.quantity,0)>0 THEN snap.quantity ELSE COALESCE(o.quantity,0) END quantity,
@@ -95,4 +119,4 @@ try {
   try { fs.unlinkSync(`${dbPath}-shm`); } catch {}
 }
 
-console.log('WORKFLOW_BOARD_FIELDS_AND_SHIPPING_REGRESSION_OK');
+console.log('WORKFLOW_BOARD_IMPORT_PRIORITY_AND_FIELDS_REGRESSION_OK');
