@@ -28,5 +28,14 @@ const newBlock = `  // V5.1.7-PRODUCT-DATA-EQUIPMENT-PRIORITY
 
 if (!blockRegex.test(source)) throw new Error('Product data equipment priority patch target not found');
 source = source.replace(blockRegex, newBlock);
+
+// 页面“设备”实际显示 orders.process；当产品主数据没有设备时，Excel 的“设备”必须回退到 process。
+const oldProcessLine = "  let process = normalizeImportText(findImportValue(row, [\n    'process','工艺','制程','工序','process'\n  ]));";
+const newProcessLine = "  let process = normalizeImportText(findImportValue(row, [\n    'process','工艺','制程','工序','设备','设备名称','设备编号','机台配置','机台','机台号','机器','机器编号','生产设备'\n  ]));";
+if (!source.includes(newProcessLine)) {
+  if (!source.includes(oldProcessLine)) throw new Error('Excel equipment fallback target not found');
+  source = source.replace(oldProcessLine, newProcessLine);
+}
+
 fs.writeFileSync(file, source);
 console.log('PRODUCT_DATA_EQUIPMENT_PRIORITY_APPLIED');
