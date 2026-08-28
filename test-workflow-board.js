@@ -21,9 +21,9 @@ for (const pattern of requiredPatterns) {
   }
 }
 
-// 回归测试：没有工单号时也必须允许看板记录返回，避免 NULL = NULL 把整行过滤掉。
-const boardSqlGuard = /snap\.work_order_number IS NULL\s*\n?\s*\|\|/;
-if (!boardSqlGuard.test(source)) {
+// 回归测试：没有工单号时也必须允许看板记录返回，避免 SQL 中 NULL = NULL 把记录过滤掉。
+const boardSqlGuard = /snap\.work_order_number\s+IS\s+NULL\s+\n?\s*OR\s+snap\.id\s*=/.test(source);
+if (!boardSqlGuard) {
   throw new Error('Workflow board query is missing the NULL work-order guard');
 }
 
