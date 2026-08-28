@@ -27,8 +27,15 @@ if (!/workflowStageCounts=\{\};[\s\S]*workflowStageCounts\[s\]=Number\(byStage\[
   throw new Error('Workflow stage counts are not loaded from all four board APIs');
 }
 
-if (!server.includes('COALESCE(o.shipping_quantity,0) shipping_quantity')) {
-  throw new Error('Workflow board API is missing shipping quantity');
+const requiredServerFields = [
+  "json_extract(snap.raw_json,'$.shipping_quantity')",
+  "json_extract(snap.raw_json,'$.delivery_qty')",
+  "COALESCE(NULLIF(TRIM(snap.shipping_required_date),''),o.shipping_required_date)",
+  "COALESCE(NULLIF(TRIM(snap.delivery_date),''),o.delivery_date)",
+  "CASE WHEN COALESCE(snap.quantity,0)>0 THEN snap.quantity ELSE COALESCE(o.quantity,0) END quantity"
+];
+for (const pattern of requiredServerFields) {
+  if (!server.includes(pattern)) throw new Error(`Workflow board API missing verified field mapping: ${pattern}`);
 }
 
 const expectedTables = ['ordersTable', 'machinesTable', 'productsTable', 'scheduleTable', 'usersTable'];
