@@ -90,6 +90,7 @@
     .gantt-track { min-width: 960px; }
   
 .workflow-tabs{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}.workflow-tab{padding:9px 14px;border-radius:10px;background:#eef1f5;color:#334155;cursor:pointer;font-weight:600}.workflow-tab.active{background:#1a73e8;color:#fff}.workflow-kpi{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:14px}.workflow-kpi .box{background:#fff;border:1px solid #e6eaf0;border-radius:12px;padding:14px}.workflow-kpi .rate{font-size:24px;font-weight:800}.workflow-alert{background:#fff4f4;border:1px solid #ffc8c8;border-radius:10px;padding:10px 12px;margin-bottom:10px}.workflow-muted{color:#64748b;font-size:12px}@media(max-width:900px){.workflow-kpi{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.workflow-stage-count{display:inline-flex;align-items:center;justify-content:center;min-width:22px;height:20px;padding:0 6px;margin-left:5px;border-radius:10px;background:rgba(255,255,255,.22);font-size:11px;font-weight:800}.workflow-subnav-count{display:inline-flex;min-width:20px;height:18px;align-items:center;justify-content:center;padding:0 5px;margin-left:auto;border-radius:9px;background:#e8eef7;color:#334155;font-size:11px;font-weight:800}.workflow-board-toolbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:10px 0}.workflow-board-toolbar .form-control,.workflow-board-toolbar .form-select{min-width:170px}.workflow-board-table{width:100%!important}.workflow-board-table th{white-space:nowrap;cursor:pointer}
 </style>
 </head>
 <body>
@@ -102,10 +103,10 @@
       <a class="nav-link" data-page="orders" onclick="navigateTo('orders')"><i class="bi bi-clipboard-check"></i> 订单管理</a>
       <a class="nav-link" data-page="schedule" onclick="navigateTo('schedule')"><i class="bi bi-calendar-week"></i> 排产看板（V5 APS）</a>
       <div class="schedule-subnav" id="scheduleSubnav">
-        <a class="schedule-subnav-link" data-workflow-stage="shortage" onclick="switchWorkflowStageFromSidebar('shortage')"><i class="bi bi-exclamation-triangle"></i><span>欠料</span></a>
-        <a class="schedule-subnav-link" data-workflow-stage="available_to_issue" onclick="switchWorkflowStageFromSidebar('available_to_issue')"><i class="bi bi-box-seam"></i><span>有料待发</span></a>
-        <a class="schedule-subnav-link" data-workflow-stage="waiting_schedule" onclick="switchWorkflowStageFromSidebar('waiting_schedule')"><i class="bi bi-hourglass-split"></i><span>车间待排</span></a>
-        <a class="schedule-subnav-link" data-workflow-stage="in_process" onclick="switchWorkflowStageFromSidebar('in_process')"><i class="bi bi-gear-wide-connected"></i><span>车间在制</span></a>
+        <a class="schedule-subnav-link" data-workflow-stage="shortage" onclick="switchWorkflowStageFromSidebar('shortage')"><i class="bi bi-exclamation-triangle"></i><span>欠料 <b class="workflow-subnav-count" id="workflow-count-shortage">0</b></span></a>
+        <a class="schedule-subnav-link" data-workflow-stage="available_to_issue" onclick="switchWorkflowStageFromSidebar('available_to_issue')"><i class="bi bi-box-seam"></i><span>有料待发 <b class="workflow-subnav-count" id="workflow-count-available_to_issue">0</b></span></a>
+        <a class="schedule-subnav-link" data-workflow-stage="waiting_schedule" onclick="switchWorkflowStageFromSidebar('waiting_schedule')"><i class="bi bi-hourglass-split"></i><span>车间待排 <b class="workflow-subnav-count" id="workflow-count-waiting_schedule">0</b></span></a>
+        <a class="schedule-subnav-link" data-workflow-stage="in_process" onclick="switchWorkflowStageFromSidebar('in_process')"><i class="bi bi-gear-wide-connected"></i><span>车间在制 <b class="workflow-subnav-count" id="workflow-count-in_process">0</b></span></a>
       </div>
       <a class="nav-link" data-page="machines" onclick="navigateTo('machines')"><i class="bi bi-cpu"></i> 设备管理</a>
       <a class="nav-link" data-page="products" onclick="navigateTo('products')"><i class="bi bi-database"></i> 产品数据</a>
@@ -235,6 +236,8 @@
     let currentWorkflowStage = 'shortage';
     let workflowBoardData = null;
     let workflowKpiData = null;
+    // V5.1.4-WORKFLOW-UI-VERIFIED
+    let workflowStageCounts = {shortage:0, available_to_issue:0, waiting_schedule:0, in_process:0};
     let socket = null;
     let allOrders = [], allMachines = [], allSchedules = [], allProducts = [], workSettings = {};
     let ganttDayWidth = 100;
@@ -267,6 +270,22 @@
       console.error('Unhandled promise rejection:', event.reason);
       showToast('操作失败，请检查网络或服务器状态', 'danger');
     });
+
+    // 所有列表统一分页、排序、搜索；“当前最多”表示当前筛选结果全部显示。
+    if (window.jQuery && $.fn && $.fn.dataTable) {
+      $.extend(true, $.fn.dataTable.defaults, {
+        pageLength: 15,
+        lengthMenu: [[10,15,25,50,100,-1],[10,15,25,50,100,'当前最多']],
+        language: {
+          lengthMenu: '每页显示 _MENU_ 条记录',
+          search: '查找：',
+          zeroRecords: '没有找到记录',
+          info: '显示第 _START_ 至 _END_ 条，共 _TOTAL_ 条记录',
+          infoEmpty: '暂无记录',
+          infoFiltered: '(从 _MAX_ 条记录中筛选)'
+        }
+      });
+    }
 
     document.addEventListener('DOMContentLoaded', () => {
       fetch('/api/auth/status')
@@ -1172,12 +1191,18 @@
     async function loadWorkflowData(stage='shortage'){
       try{
         currentWorkflowStage=stage;
-        const [b,k]=await Promise.all([
-          fetch(`/api/workflow/board?stage=${encodeURIComponent(stage)}`).then(r=>r.json()),
+        const stageKeys=['shortage','available_to_issue','waiting_schedule','in_process'];
+        const [boards,k]=await Promise.all([
+          Promise.all(stageKeys.map(s=>fetch(`/api/workflow/board?stage=${encodeURIComponent(s)}`).then(r=>r.json()))),
           fetch('/api/workflow/kpi').then(r=>r.json())
         ]);
-        workflowBoardData=b; workflowKpiData=k;
-        if(['shortage','available_to_issue','waiting_schedule','in_process'].includes(currentWorkflowStage)) renderWorkflowBoard(stage);
+        const byStage={};
+        stageKeys.forEach((s,i)=>{byStage[s]=boards[i]||{};});
+        workflowStageCounts={};
+        stageKeys.forEach(s=>{workflowStageCounts[s]=Number(byStage[s]?.count||0);});
+        stageKeys.forEach(s=>{const el=document.getElementById(`workflow-count-${s}`);if(el)el.textContent=String(workflowStageCounts[s]||0);});
+        workflowBoardData=byStage[stage]||{rows:[],count:0}; workflowKpiData=k;
+        if(stageKeys.includes(currentWorkflowStage)) renderWorkflowBoard(stage);
       }catch(e){ console.error(e); if(['shortage','available_to_issue','waiting_schedule','in_process'].includes(currentWorkflowStage)) showToast('四板块数据加载失败','danger'); }
     }
     function switchWorkflowStage(stage){ currentWorkflowStage=stage; currentSubTab='workflow'; updateScheduleSidebar(); loadWorkflowData(stage); }
@@ -1186,46 +1211,60 @@
       return `<div class="workflow-tabs">${tabs.map(([k,t])=>`<div class="workflow-tab ${currentSubTab===k?'active':''}" onclick="switchSubTab('${k}')">${t}</div>`).join('')}</div>`;
     }
     function renderWorkflowBoard(stage){
-      const c=document.getElementById('contentArea'); const b=workflowBoardData||{}; const kpi=(workflowKpiData?.kpi||[]).reduce((m,x)=>(m[x.stage]=x,m),{});
-      const cards=[['shortage','欠料'],['available_to_issue','有料待发'],['waiting_schedule','车间待排'],['in_process','车间在制']].map(([key,label])=>{const x=kpi[key]||{}; return `<div class="box"><div class="workflow-muted">${label}·昨日达成率</div><div class="rate">${Number.isFinite(Number(x.rate))?Number(x.rate).toFixed(1):'100.0'}%</div><div class="workflow-muted">实际 ${x.actual_count||0} / 应完成 ${x.expected_count||0} ${Number(x.alert_count||0)>0?`· <span class="text-danger">预警 ${x.alert_count}</span>`:''}</div></div>`}).join('');
-      // 欠料板块严格只展示工单级欠料信息，不展示品号级“出货欠数/库存/待检/销货/交货”汇总。
-      const rows=(b.rows||[]).map(r=>`<tr>
-        <td>${escapeHtml(r.order_number||'-')}</td><td>${escapeHtml(r.product_code||'-')}</td><td>${escapeHtml(r.product_name||'-')}</td><td>${Number(r.quantity||0)}</td>
-        <td>${formatWorkflowDate(r.shipping_required_date||r.delivery_date)}</td><td>${formatWorkflowDate(r.workflow_expected_date)}</td>
-        <td>${escapeHtml(r.order_status==='scheduled' ? '已排待制' : (r.workflow_production_progress||'-'))}</td><td>${escapeHtml(r.workflow_material_status||'-')}</td><td>${escapeHtml(r.workflow_shortage_detail||'-')}</td>
-        <td>${r.scheduled_start?formatTime(r.scheduled_start):'-'}</td><td>${r.scheduled_end?formatTime(r.scheduled_end):'-'}</td></tr>`).join('');
-      const tableHead=`<tr><th>工单</th><th>品号</th><th>品名</th><th>数量</th><th>要求出货/交货日期</th><th>板块预计日期</th><th>生产进度</th><th>是否齐料</th><th>欠料明细</th><th>预计开工</th><th>预计完工</th></tr>`;
-      const alerts=(b.alerts||[]).map(a=>`<div class="workflow-alert"><strong>⚠ ${escapeHtml(a.order_number||a.product_code||'')}</strong> ${escapeHtml(a.reason||'')}</div>`).join('');
-      const importBtn=currentUser.role!=='viewer'?`<label class="btn btn-sm btn-primary"><input type="file" hidden accept=".xlsx,.xls,.csv" onchange="importWorkflowExcel(this)">导入Excel并自动识别</label>`:'';
-      const latest=b.latest_import_date?`<span class="workflow-muted ms-2">当前批次：${escapeHtml(b.latest_import_date)}</span>`:'';
-      const stageTitle = workflowStageLabel(stage);
-      c.innerHTML=`<div class="card-custom"><div class="card-header d-flex justify-content-between align-items-center"><div class="d-flex align-items-center gap-2"><span class="fw-semibold">${escapeHtml(stageTitle)}</span>${workflowTabsHtml()}${latest}</div><div>${importBtn} ${currentUser.role!=='viewer'?`<button class="btn btn-sm btn-outline-success ms-1" onclick="runAutoSchedule()">对待排工单排程</button>`:''}</div></div><div class="card-body"><div class="workflow-kpi">${cards}</div>${alerts}<div class="table-responsive"><table class="table table-sm table-hover"><thead>${tableHead}</thead><tbody>${rows||'<tr><td colspan="11" class="text-muted">当前批次该板块暂无数据</td></tr>'}</tbody></table></div></div></div>`;
-    }
-    async function importWorkflowExcel(input){
-      const file=input.files?.[0]; if(!file)return;
-      try{
-        showLoading();
-        const data=await file.arrayBuffer(); const wb=XLSX.read(data,{type:'array',cellDates:true}); let all=[];
-        for(const sheetName of wb.SheetNames){
-          const ws=wb.Sheets[sheetName];
-          const matrix=XLSX.utils.sheet_to_json(ws,{header:1,defval:'',raw:true});
-          let headerRow=0,bestScore=-1;
-          for(let r=0;r<Math.min(matrix.length,15);r++){
-            const vals=matrix[r].map(v=>String(v??'').trim());
-            const score=vals.filter(v=>/品号|工单|销货数量|库存|待检|出货欠数|预计开工|是否齐料|生产进度|欠料明细|要求出货时间|刀模号|工艺/i.test(v)).length;
-            if(score>bestScore){bestScore=score;headerRow=r;}
-          }
-          const rows=XLSX.utils.sheet_to_json(ws,{defval:'',raw:true,range:headerRow});
-          rows.forEach((r,idx)=>{r.__sheet_name=sheetName;r.__row_index=headerRow+idx+2;all.push(r);});
-        }
-        if(!all.length) throw new Error('Excel没有数据');
-        const resp=await apiJson('/api/workflow/import',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({filename:file.name,rows:all,snapshot_date:new Date().toISOString().slice(0,10)})});
-        if(!resp.success) throw new Error(resp.message||'导入失败');
-        showToast(resp.message||'四板块Excel导入成功','success');
-        workflowBoardData=null;
-        await loadWorkflowData(currentWorkflowStage||'shortage');
-        showToast(`当前批次：欠料 ${resp.stages?.shortage||0}，有料待发 ${resp.stages?.available_to_issue||0}，车间待排 ${resp.stages?.waiting_schedule||0}，车间在制 ${resp.stages?.in_process||0}`, 'info');
-      }catch(e){console.error(e);showToast(e.message||'Excel导入失败','danger');}finally{hideLoading(); input.value='';}
+      const c=document.getElementById('contentArea');
+      const b=workflowBoardData||{};
+      const kpi=(workflowKpiData?.kpi||[]).reduce((m,x)=>(m[x.stage]=x,m),{});
+      const stageCount=Number(workflowStageCounts[stage]||b.count||0);
+      const cards=[['shortage','欠料'],['available_to_issue','有料待发'],['waiting_schedule','车间待排'],['in_process','车间在制']].map(([key,label])=>{
+        const x=kpi[key]||{};
+        return `<div class="box"><div class="workflow-muted">${label}·当前数量 <strong>${Number(workflowStageCounts[key]||0)}</strong></div><div class="rate">${Number.isFinite(Number(x.rate))?Number(x.rate).toFixed(1):'100.0'}%</div><div class="workflow-muted">实际 ${x.actual_count||0} / 应完成 ${x.expected_count||0} ${Number(x.alert_count||0)>0?`· <span class="text-danger">预警 ${x.alert_count}</span>`:''}</div></div>`;
+      }).join('');
+      const rows=Array.isArray(b.rows)?b.rows:[];
+      const productionValues=[...new Set(rows.map(r=>String(r.workflow_status_text||r.production_progress||'').trim()).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'zh'));
+      const materialValues=[...new Set(rows.map(r=>String(r.material_status||'').trim()).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'zh'));
+      const tableRows=rows.map(r=>{
+        const status=String(r.workflow_status_text||r.production_progress||'-');
+        const material=String(r.material_status||'-');
+        const shortage=String(r.shortage_detail||'-');
+        return `<tr>
+          <td data-order="${escapeHtml(r.order_number||'')}">${escapeHtml(r.order_number||'-')}</td>
+          <td>${escapeHtml(r.product_code||'-')}</td>
+          <td>${escapeHtml(r.product_name||'-')}</td>
+          <td data-order="${Number(r.quantity||0)}">${Number(r.quantity||0)}</td>
+          <td data-order="${Number(r.shipping_quantity||0)}">${Number(r.shipping_quantity||0)}</td>
+          <td data-order="${escapeHtml(r.shipping_required_date||r.delivery_date||'')}">${formatWorkflowDate(r.shipping_required_date||r.delivery_date)}</td>
+          <td data-order="${escapeHtml(r.workflow_expected_date||'')}">${formatWorkflowDate(r.workflow_expected_date)}</td>
+          <td>${escapeHtml(status)}</td>
+          <td>${escapeHtml(material)}</td>
+          <td>${escapeHtml(shortage)}</td>
+        </tr>`;
+      }).join('');
+      const alerts=(b.alerts||[]).map(a=>`<div class="workflow-alert"><strong>${escapeHtml(a.order_number||'-')}</strong>：${escapeHtml(a.reason||'已到期未转段')}</div>`).join('');
+      c.innerHTML=`
+        <div class="workflow-tabs">${workflowTabsHtml()}</div>
+        <div class="workflow-kpi">${cards}</div>
+        <div class="card-custom">
+          <div class="card-header"><span>${escapeHtml(b.label||workflowStageLabel(stage))} · 当前批次 <strong>${stageCount}</strong> 条</span><span class="workflow-muted">导入日期：${escapeHtml(b.latest_import_date||'-')}</span></div>
+          <div class="p-3">
+            <div class="workflow-board-toolbar">
+              <input id="workflow-board-search" class="form-control form-control-sm" placeholder="查找工单、品号、品名、状态、欠料明细">
+              <select id="workflow-production-filter" class="form-select form-select-sm"><option value="">全部生产状态</option>${productionValues.map(v=>`<option value="${escapeHtml(v)}">${escapeHtml(v)}</option>`).join('')}</select>
+              <select id="workflow-material-filter" class="form-select form-select-sm"><option value="">全部物料状态</option>${materialValues.map(v=>`<option value="${escapeHtml(v)}">${escapeHtml(v)}</option>`).join('')}</select>
+            </div>
+            <div class="table-responsive">
+              <table id="workflowBoardTable" class="table table-hover table-sm workflow-board-table">
+                <thead><tr><th>工单</th><th>品号</th><th>品名</th><th>数量</th><th>出货数量</th><th>要求出货/交货日期</th><th>板块预计日期</th><th>生产状态</th><th>物料状态</th><th>欠料明细</th></tr></thead>
+                <tbody>${tableRows}</tbody>
+              </table>
+            </div>
+            ${alerts}
+          </div>
+        </div>
+      `;
+      const table=$('#workflowBoardTable').DataTable({destroy:true,pageLength:15,order:[[5,'asc'],[0,'asc']]});
+      $('#workflow-board-search').on('input',function(){table.search(this.value).draw();});
+      $('#workflow-production-filter').on('change',function(){table.column(7).search(this.value).draw();});
+      $('#workflow-material-filter').on('change',function(){table.column(8).search(this.value).draw();});
     }
     function renderScheduleView() {
       if (['shortage','available_to_issue','waiting_schedule','in_process'].includes(currentWorkflowStage) && currentSubTab === 'workflow') renderWorkflowBoard(currentWorkflowStage);

@@ -1045,7 +1045,7 @@ app.get('/api/workflow/board', requireAuth, (req,res)=>{
       SELECT o.id order_id,COALESCE(o.order_number,snap.work_order_number) order_number,
              COALESCE(o.product_code,snap.product_code) product_code,
              COALESCE(o.product_name,snap.product_name) product_name,
-             COALESCE(snap.quantity,o.quantity,0) quantity,o.status order_status,
+             COALESCE(snap.quantity,o.quantity,0) quantity,COALESCE(o.shipping_quantity,0) shipping_quantity,o.status order_status,
              snap.shipping_required_date,snap.delivery_date,
              o.priority,o.mold,o.process,o.capacity,o.mold_change_time,
              snap.stage workflow_stage,snap.status_text workflow_status_text,snap.expected_date workflow_expected_date,
