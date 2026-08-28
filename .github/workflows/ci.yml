@@ -30,6 +30,8 @@ jobs:
         run: node ../tools/repair-shipping-quantity.js
       - name: Apply workflow field priority repair
         run: node ../tools/repair-workflow-fields.js
+      - name: Ensure workflow snapshot shipping quantity column
+        run: node ../tools/ensure-workflow-shipping-column.js
       - name: Apply real board data fallback repair
         run: node ../tools/repair-real-board-data.js
       - name: Commit verified source repair
