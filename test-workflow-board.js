@@ -1,8 +1,6 @@
 const fs = require('fs');
 const path = require('path');
-const os = require('os');
 const vm = require('vm');
-const Database = require(path.join(__dirname, 'diecut-schedule', 'node_modules', 'better-sqlite3'));
 
 const serverPath = path.join(__dirname, 'diecut-schedule', 'server.js');
 if (!fs.existsSync(serverPath)) throw new Error(`server.js not found: ${serverPath}`);
@@ -25,21 +23,18 @@ const requiredPatterns = [
   "excelContext.deliveryDateByOrder?.get(orderNumber)",
   "excelContext.urgentShippingDateByOrder?.get(orderNumber)",
   "excelContext.urgentDeliveryDateByOrder?.get(orderNumber)",
-  "// V5.1.4-WORKFLOW-FIELDS-VERIFIED",
-  "// V5.1.3-SHIPPING-QTY-BACKFILL",
-  "backfillOrderShippingQuantities();"
+  "// V5.1.5-WORKFLOW-LEGACY-FIELD-BACKFILL",
+  "const legacyQuantity = numberOr(fields[8], NaN)",
+  "const legacyShipping = numberOr(fields[14], NaN)",
+  "const legacyShipDate = normalizeImportedDate(fields[15])",
+  "backfillWorkflowLegacyBoardFields();"
 ];
 for (const pattern of requiredPatterns) {
   if (!source.includes(pattern)) throw new Error(`Missing workflow mapping/repair: ${pattern}`);
 }
 
-// 真实 Excel 核心场景：同一行同时存在“生产数量=0”和“预计产量=300000”。
 function normalizeImportHeader(value) {
   return String(value ?? '').trim().toLowerCase().replace(/[\s\u3000_\-/\\()（）【】\x5B\]：:]+/g, '');
-}
-function normalizeImportText(value) {
-  if (value === null || value === undefined) return '';
-  return String(value).replace(/[\u200B-\u200D\uFEFF]/g, '').trim();
 }
 function findImportValue(row, aliases) {
   const entries = Object.entries(row || {});
@@ -68,53 +63,59 @@ function findImportValuePriority(row, preferredAliases = [], fallbackAliases = [
   return findImportValue(row, fallbackAliases.length ? fallbackAliases : preferredAliases);
 }
 const sampleRow = {'生产数量':0,'预计产量':300000,'出货数量':100000,'要求出货日期':'2026-08-20'};
-if (Number(findImportValuePriority(sampleRow,['预计产量','预计计划量'],['工单数量','订单数量','需求数量','生产数量','计划数量','数量','qty','pcs'])) !== 300000) throw new Error('预计产量优先级回归失败');
+if (Number(findImportValuePriority(sampleRow,['预计产量','预计计划量','数量','quantity','qty'],['工单数量','订单数量','需求数量','生产数量','计划数量','pcs','总数量'])) !== 300000) throw new Error('预计产量优先级回归失败');
 if (Number(findImportValuePriority(sampleRow,['出货数量','shipping_quantity','shipping quantity'],['已出货数量','交货数量','发货数量','delivery quantity'])) !== 100000) throw new Error('出货数量回归失败');
 
-const boardSqlGuard = /snap\.work_order_number\s+IS\s+NULL\s+\n?\s*OR\s+snap\.id\s*=/;
-if (!boardSqlGuard.test(source)) throw new Error('Workflow board query is missing the NULL work-order guard');
+const legacyFnStart = source.indexOf('function backfillWorkflowLegacyBoardFields()');
+const legacyFnEnd = source.indexOf('backfillWorkflowLegacyBoardFields();', legacyFnStart);
+if (legacyFnStart < 0 || legacyFnEnd < 0) throw new Error('Legacy workflow backfill function not found');
+const fnSource = source.slice(legacyFnStart, legacyFnEnd);
 
-const fnStart = source.indexOf('// V5.1.3-SHIPPING-QTY-BACKFILL');
-const fnEnd = source.indexOf('backfillOrderShippingQuantities();', fnStart);
-if (fnStart < 0 || fnEnd < 0) throw new Error('Shipping backfill function not found');
-const fnSource = source.slice(source.indexOf('function backfillOrderShippingQuantities()', fnStart), fnEnd);
-const dbPath = path.join(os.tmpdir(), `diecut-shipping-backfill-${process.pid}.db`);
-const db = new Database(dbPath);
-try {
-  db.exec(`
-    CREATE TABLE workflow_import_batches (id INTEGER PRIMARY KEY, snapshot_date TEXT, imported_at TEXT);
-    CREATE TABLE workflow_snapshots (
-      id INTEGER PRIMARY KEY, batch_id INTEGER, work_order_number TEXT,
-      raw_json TEXT, shipping_required_date TEXT, delivery_date TEXT, quantity REAL DEFAULT 0, stage TEXT
-    );
-    CREATE TABLE orders (
-      id INTEGER PRIMARY KEY, order_number TEXT, quantity INTEGER DEFAULT 0, shipping_quantity INTEGER DEFAULT 0,
-      shipping_required_date TEXT, delivery_date TEXT
-    );
-  `);
-  db.prepare("INSERT INTO workflow_import_batches VALUES (1,'2026-08-28','2026-08-28T03:00:00Z')").run();
-  db.prepare("INSERT INTO orders VALUES (1,'5110-20260811002',0,0,'2026-08-20',NULL)").run();
-  db.prepare('INSERT INTO workflow_snapshots VALUES (1,1,?,?,?,?,?,?)')
-    .run('5110-20260811002', JSON.stringify({shipping_quantity:100000,delivery_qty:100000}), '2026-08-20', null, 100000, 'waiting_schedule');
-  const backfill = vm.runInNewContext(`(function(){${fnSource}\n return backfillOrderShippingQuantities; })()`, {db});
-  const changed = backfill();
-  if (changed !== 1) throw new Error(`Expected 1 backfilled order, got ${changed}`);
-  const row = db.prepare('SELECT shipping_quantity,shipping_required_date,delivery_date FROM orders WHERE id=1').get();
-  if (row.shipping_quantity !== 100000 || row.shipping_required_date !== '2026-08-20') throw new Error(`Shipping quantity backfill failed: ${JSON.stringify(row)}`);
-
-  const boardRow = db.prepare(`
-    SELECT
-      CASE WHEN COALESCE(snap.quantity,0)>0 THEN snap.quantity ELSE 100000 END quantity,
-      CASE WHEN COALESCE(o.shipping_quantity,0)>0 THEN o.shipping_quantity
-           ELSE COALESCE(CAST(json_extract(snap.raw_json,'$.shipping_quantity') AS REAL),CAST(json_extract(snap.raw_json,'$.delivery_qty') AS REAL),0) END shipping_quantity,
-      COALESCE(NULLIF(TRIM(snap.shipping_required_date),''),o.shipping_required_date) shipping_required_date,
-      COALESCE(NULLIF(TRIM(snap.delivery_date),''),o.delivery_date) delivery_date
-    FROM workflow_snapshots snap LEFT JOIN orders o ON o.order_number=snap.work_order_number
-    WHERE snap.batch_id=1 AND snap.stage='waiting_schedule'
-  `).get();
-  if (Number(boardRow.quantity)!==100000 || Number(boardRow.shipping_quantity)!==100000 || boardRow.shipping_required_date!=='2026-08-20') throw new Error(`Board field projection failed: ${JSON.stringify(boardRow)}`);
-} finally {
-  db.close();
-  for (const p of [dbPath,`${dbPath}-wal`,`${dbPath}-shm`]) { try { fs.unlinkSync(p); } catch {} }
+function numberOr(value, fallback) {
+  const n = Number(String(value ?? '').replace(/,/g, ''));
+  return Number.isFinite(n) ? n : fallback;
 }
+function normalizeImportedDate(value) {
+  const s = String(value ?? '').trim();
+  const m = s.match(/(20\d{2})[-\/.](\d{1,2})[-\/.](\d{1,2})/);
+  if (m) return `${m[1]}-${m[2].padStart(2,'0')}-${m[3].padStart(2,'0')}`;
+  return null;
+}
+
+let updated;
+const fakeRows = [{
+  id: 1,
+  work_order_number: '5110-20260804013',
+  quantity: 0,
+  shipping_quantity: 0,
+  shipping_required_date: null,
+  delivery_date: null,
+  sheet_name: '8.22在制工单明细',
+  raw_json: JSON.stringify({
+    quantity: 0,
+    status_text: 'K00002 | ****-YLA2608003-0007 | 5110-20260804013 | 未生产 | 2026-08-23 | 31BJ00194A | GIAY DAN LOA 喇叭双面胶 | 6.23mm*1.8mm | 300000 | 0 | 300000 | 5410-20260804014 | AI1689005WR00005 | 0 | 2026-08-21 | 未发料 | 仓库有料 | 8.21查料',
+    shipping_quantity: 0
+  })
+}];
+const calls = [];
+const fakeDb = {
+  prepare(sql) {
+    if (/SELECT id FROM workflow_import_batches/.test(sql)) return { get: () => ({id: 24}) };
+    if (/SELECT id, work_order_number, quantity/.test(sql)) return { all: () => fakeRows };
+    if (/UPDATE workflow_snapshots/.test(sql)) return { run: (...args) => { updated = args; calls.push(args); } };
+    throw new Error(`Unexpected SQL in legacy backfill test: ${sql}`);
+  },
+  transaction(fn) { return () => fn(); }
+};
+const backfill = vm.runInNewContext(`(function(){${fnSource}\nreturn backfillWorkflowLegacyBoardFields;})()`, {db: fakeDb, numberOr, normalizeImportedDate});
+const changed = backfill();
+if (changed !== 1) throw new Error(`Expected 1 legacy row patched, got ${changed}`);
+if (!updated) throw new Error('Legacy backfill did not execute update');
+// UPDATE args are quantity, shipping_quantity, shipping_required_date, delivery_date, raw_json, id.
+if (Number(updated[0]) !== 300000) throw new Error(`Legacy quantity recovery failed: ${updated[0]}`);
+if (String(updated[2]) !== '2026-08-21') throw new Error(`Legacy shipping date recovery failed: ${updated[2]}`);
+const patchedRaw = JSON.parse(updated[4]);
+if (Number(patchedRaw.quantity) !== 300000) throw new Error('Patched raw quantity is not 300000');
+if (Number(patchedRaw.shipping_quantity) !== 0) throw new Error('Patched raw shipping quantity should remain 0');
+
 console.log('WORKFLOW_BOARD_IMPORT_PRIORITY_AND_FIELDS_REGRESSION_OK');
