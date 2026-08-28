@@ -30,6 +30,8 @@ jobs:
         run: node ../tools/repair-shipping-quantity.js
       - name: Apply workflow field priority repair
         run: node ../tools/repair-workflow-fields.js
+      - name: Apply real board data fallback repair
+        run: node ../tools/repair-real-board-data.js
       - name: Commit verified source repair
         run: |
           git config user.name "github-actions[bot]"
@@ -37,7 +39,7 @@ jobs:
           cd ..
           if ! git diff --quiet -- diecut-schedule/server.js diecut-schedule/public/index.html; then
             git add diecut-schedule/server.js diecut-schedule/public/index.html
-            git commit -m "Fix verified source and workflow UI"
+            git commit -m "Fix verified workflow board fields"
             git fetch origin main
             git rebase origin/main
             git push origin HEAD:main
