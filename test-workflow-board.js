@@ -93,16 +93,15 @@ const fakeRows = [{
   sheet_name: '8.22在制工单明细',
   raw_json: JSON.stringify({
     quantity: 0,
-    status_text: 'K00002 | ****-YLA2608003-0007 | 5110-20260804013 | 未生产 | 2026-08-23 | 31BJ00194A | GIAY DAN LOA 喇叭双面胶 | 6.23mm*1.8mm | 300000 | 0 | 300000 | 5410-20260804014 | AI1689005WR00005 | 0 | 2026-08-21 | 未发料 | 仓库有料 | 8.21查料',
+    status_text: 'K00002 | ****-YLA2608003-0007 | 5110-20260804013 | 未生产 | 2026-08-23 | 31BJ00194A | GIAY DAN LOA 喇叭双面胶 | 6.23mm*1.8mm | 300000 | 0 | 300000 | 5410-20260804014 | AI1689005WR00005 |  |  | 未发料 | 仓库有料 | 8.21查料',
     shipping_quantity: 0
   })
 }];
-const calls = [];
 const fakeDb = {
   prepare(sql) {
     if (/SELECT id FROM workflow_import_batches/.test(sql)) return { get: () => ({id: 24}) };
     if (/SELECT id, work_order_number, quantity/.test(sql)) return { all: () => fakeRows };
-    if (/UPDATE workflow_snapshots/.test(sql)) return { run: (...args) => { updated = args; calls.push(args); } };
+    if (/UPDATE workflow_snapshots/.test(sql)) return { run: (...args) => { updated = args; } };
     throw new Error(`Unexpected SQL in legacy backfill test: ${sql}`);
   },
   transaction(fn) { return () => fn(); }
@@ -111,9 +110,9 @@ const backfill = vm.runInNewContext(`(function(){${fnSource}\nreturn backfillWor
 const changed = backfill();
 if (changed !== 1) throw new Error(`Expected 1 legacy row patched, got ${changed}`);
 if (!updated) throw new Error('Legacy backfill did not execute update');
-// UPDATE args are quantity, shipping_quantity, shipping_required_date, delivery_date, raw_json, id.
 if (Number(updated[0]) !== 300000) throw new Error(`Legacy quantity recovery failed: ${updated[0]}`);
-if (String(updated[2]) !== '2026-08-21') throw new Error(`Legacy shipping date recovery failed: ${updated[2]}`);
+if (Number(updated[1]) !== 0) throw new Error(`Legacy shipping quantity should remain 0: ${updated[1]}`);
+if (updated[2] !== null) throw new Error(`Legacy row should keep null shipping date when source row has no date: ${updated[2]}`);
 const patchedRaw = JSON.parse(updated[4]);
 if (Number(patchedRaw.quantity) !== 300000) throw new Error('Patched raw quantity is not 300000');
 if (Number(patchedRaw.shipping_quantity) !== 0) throw new Error('Patched raw shipping quantity should remain 0');
