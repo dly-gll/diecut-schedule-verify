@@ -19,6 +19,7 @@ const requiredPatterns = [
   "Number(item.shipping_quantity)||0",
   "shipping_quantity=?,shipping_required_date=?,delivery_date=?",
   "json_extract(snap.raw_json,'$.shipping_quantity')",
+  "json_extract(snap.raw_json,'$.delivery_qty')",
   "CASE WHEN COALESCE(snap.quantity,0)>0 THEN snap.quantity ELSE COALESCE(o.quantity,0) END quantity",
   "// V5.1.4-WORKFLOW-FIELDS-VERIFIED",
   "// V5.1.3-SHIPPING-QTY-BACKFILL",
@@ -53,17 +54,17 @@ try {
     CREATE TABLE workflow_import_batches (id INTEGER PRIMARY KEY, snapshot_date TEXT, imported_at TEXT);
     CREATE TABLE workflow_snapshots (
       id INTEGER PRIMARY KEY, batch_id INTEGER, work_order_number TEXT,
-      raw_json TEXT, shipping_required_date TEXT, delivery_date TEXT
+      raw_json TEXT, shipping_required_date TEXT, delivery_date TEXT, quantity REAL DEFAULT 0, stage TEXT
     );
     CREATE TABLE orders (
-      id INTEGER PRIMARY KEY, order_number TEXT, shipping_quantity INTEGER DEFAULT 0,
+      id INTEGER PRIMARY KEY, order_number TEXT, quantity INTEGER DEFAULT 0, shipping_quantity INTEGER DEFAULT 0,
       shipping_required_date TEXT, delivery_date TEXT
     );
   `);
   db.prepare('INSERT INTO workflow_import_batches VALUES (1,\'2026-08-28\',\'2026-08-28T03:00:00Z\')').run();
-  db.prepare('INSERT INTO orders VALUES (1,\'5110-20260811002\',0,\'2026-08-20\',NULL)').run();
-  db.prepare('INSERT INTO workflow_snapshots VALUES (1,1,?,?,?,?)')
-    .run('5110-20260811002', JSON.stringify({shipping_quantity: 100000, delivery_qty: 100000}), '2026-08-20', null);
+  db.prepare('INSERT INTO orders VALUES (1,\'5110-20260811002\',0,0,\'2026-08-20\',NULL)').run();
+  db.prepare('INSERT INTO workflow_snapshots VALUES (1,1,?,?,?,?,?,?)')
+    .run('5110-20260811002', JSON.stringify({shipping_quantity: 100000, delivery_qty: 100000}), '2026-08-20', null, 100000, 'waiting_schedule');
 
   const backfill = vm.runInNewContext(`(function(){${fnSource}\n return backfillOrderShippingQuantities; })()`, { db });
   const changed = backfill();
@@ -74,9 +75,6 @@ try {
   }
 
   // Board projection regression: quantity/shipping/date must remain populated from snapshot/order fallbacks.
-  db.exec(`ALTER TABLE workflow_snapshots ADD COLUMN quantity REAL DEFAULT 0;`);
-  db.exec(`ALTER TABLE workflow_snapshots ADD COLUMN stage TEXT DEFAULT 'waiting_schedule';`);
-  db.prepare('UPDATE workflow_snapshots SET quantity=100000, stage=\'waiting_schedule\' WHERE id=1').run();
   const boardRow = db.prepare(`
     SELECT
       CASE WHEN COALESCE(snap.quantity,0)>0 THEN snap.quantity ELSE COALESCE(o.quantity,0) END quantity,
