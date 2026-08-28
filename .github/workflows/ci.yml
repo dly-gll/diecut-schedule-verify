@@ -46,12 +46,15 @@ jobs:
       - name: Package verified source
         run: |
           cd ..
-          rm -rf /tmp/diecut-schedule-package
-          mkdir -p /tmp/diecut-schedule-package
-          rsync -a --exclude=node_modules --exclude=data.db --exclude='data.db-*' --exclude=.git diecut-schedule/ /tmp/diecut-schedule-package/
-          cd /tmp
-          rm -f diecut-schedule-verified.zip
-          zip -qr diecut-schedule-verified.zip diecut-schedule-package
+          rm -rf /tmp/diecut-release /tmp/diecut-schedule-verified.zip
+          mkdir -p /tmp/diecut-release
+          mkdir -p /tmp/diecut-release/diecut-schedule
+          rsync -a --exclude=node_modules --exclude=data.db --exclude='data.db-*' --exclude=.git diecut-schedule/ /tmp/diecut-release/diecut-schedule/
+          test -f /tmp/diecut-release/diecut-schedule/server.js
+          test -f /tmp/diecut-release/diecut-schedule/package.json
+          cd /tmp/diecut-release
+          zip -qr /tmp/diecut-schedule-verified.zip diecut-schedule
+          unzip -l /tmp/diecut-schedule-verified.zip | grep -q 'diecut-schedule/server.js'
       - name: Upload verified package
         uses: actions/upload-artifact@v4
         with:
