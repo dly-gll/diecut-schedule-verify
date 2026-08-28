@@ -745,7 +745,7 @@
           }
           const resp = await apiJson('/api/workflow/import', {
             method:'POST', headers:{'Content-Type':'application/json'},
-            body: JSON.stringify({ filename:file.name, rows:all, snapshot_date:new Date().toISOString().slice(0,10) })
+            body: JSON.stringify({ filename:file.name, rows:all, snapshot_date:new Date().toISOString().slice(0,10), source_page:'orders' })
           });
           hideLoading();
           if (!resp.success) throw new Error(resp.message || '生产工作流导入失败');
@@ -787,7 +787,7 @@
           const chunk = orders.slice(i, i+chunkSize);
           const result = await apiJson('/api/orders/batch-import', {
             method:'POST', headers:{'Content-Type':'application/json'},
-            body: JSON.stringify({ orders: chunk })
+            body: JSON.stringify({ orders: chunk, source_page:'orders' })
           });
           imported += Number(result.count || chunk.length);
         }
@@ -1037,7 +1037,7 @@
           const resp = await fetch('/api/product-data/batch-import', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ products })
+            body: JSON.stringify({ products, source_page: 'products' })
           });
           const data = await resp.json();
           hideLoading();
@@ -1056,6 +1056,33 @@
       input.value = '';
     }
 
+    // V5.2: 设备管理页面专属Excel导入。
+    async function importMachines(input) {
+      const file = input.files[0];
+      if (!file) return;
+      try {
+        showLoading();
+        const buffer = await file.arrayBuffer();
+        const wb = XLSX.read(buffer, {type:'array',cellDates:true});
+        if (!wb.SheetNames.length) throw new Error('Excel没有工作表');
+        const ws = wb.Sheets[wb.SheetNames[0]];
+        const rows = XLSX.utils.sheet_to_json(ws, {defval:'',raw:true});
+        const machines = rows.map(r => ({
+          name: r['设备名称'] || r['设备'] || r['机台'] || r['机器'] || r['name'] || r['machine_name'] || '',
+          machine_type: r['设备类型'] || r['类型'] || r['机器类型'] || r['machine_type'] || '',
+          status: r['状态'] || r['status'] || 'active',
+          remark: r['备注'] || r['说明'] || r['remark'] || ''
+        })).filter(x => String(x.name).trim());
+        if (!machines.length) throw new Error('未识别到有效设备数据，请检查Excel是否存在“设备名称/设备”列');
+        const result = await apiJson('/api/machines/batch-import', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({machines,source_page:'machines'})});
+        hideLoading();
+        showToast('设备Excel导入完成：'+(result.count||machines.length)+'条，新增'+(result.created||0)+'台，更新'+(result.updated||0)+'台','success');
+        loadMachines();
+      } catch (err) {
+        hideLoading();
+        showToast(err.message || '设备Excel导入失败','danger');
+      } finally { input.value=''; }
+    }
     // ========== 设备管理 ==========
     function loadMachines() {
       fetch('/api/machines').then(r=>r.json()).then(d=>{
@@ -1068,7 +1095,7 @@
           <td>${currentUser.role!=='viewer'?`<button class="btn btn-sm btn-outline-primary me-1" onclick="editMachine(${m.id})">编辑</button><button class="btn btn-sm btn-outline-danger" onclick="deleteMachine(${m.id})">删除</button>`:'-'}</td>
         </tr>`).join('');
         document.getElementById('contentArea').innerHTML=`
-          <div class="card-custom"><div class="card-header">设备管理 ${currentUser.role!=='viewer'?'<button class="btn btn-sm btn-primary" onclick="showMachineModal()">新增设备</button>':''}</div>
+          <div class="card-custom"><div class="card-header">设备管理 ${currentUser.role!=='viewer'?'<div><label class="btn btn-sm btn-outline-info me-2"><input type="file" hidden accept=".xlsx,.xls" onchange="importMachines(this)">导入Excel</label><button class="btn btn-sm btn-primary" onclick="showMachineModal()">新增设备</button></div>':''}</div>
           <div class="card-body"><table class="table" id="machinesTable"><thead class="table-light"><tr><th>设备名称</th><th>设备类型（管理员可直接修改）</th><th>状态</th><th>备注</th><th>操作</th></tr></thead><tbody>${rows}</tbody></table></div></div>
           <div class="modal fade" id="machineModal"><div class="modal-dialog"><div class="modal-content">
             <div class="modal-header"><h5 class="modal-title" id="machineModalTitle">新增设备</h5><button class="btn-close" data-bs-dismiss="modal"></button></div>
@@ -1229,7 +1256,7 @@
           rows.forEach((r,idx)=>{r.__sheet_name=sheetName;r.__row_index=headerRow+idx+2;all.push(r);});
         }
         if(!all.length) throw new Error('Excel没有数据');
-        const resp=await apiJson('/api/workflow/import',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({filename:file.name,rows:all,snapshot_date:new Date().toISOString().slice(0,10)})});
+        const resp=await apiJson('/api/workflow/import',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({filename:file.name,rows:all,snapshot_date:new Date().toISOString().slice(0,10),source_page:'orders'})});
         if(!resp.success) throw new Error(resp.message||'导入失败');
         showToast(resp.message||'四板块Excel导入成功','success');
         workflowBoardData=null;
@@ -1760,3 +1787,4 @@
 </script>
 </body>
 </html>
+// V5.2-IMPORT-DATA-SCOPE-ISOLATION

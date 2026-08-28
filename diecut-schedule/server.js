@@ -1010,6 +1010,7 @@ app.post('/api/workflow/import', requireEdit, (req,res)=>{
     if(!rows.length) return res.status(400).json({success:false,message:'Excel没有可导入的数据'});
     const snapshotDate=String(req.body?.snapshot_date || todayISO()).slice(0,10);
     const filename=String(req.body?.filename || 'workflow.xlsx').slice(0,200);
+    if (req.body?.source_page !== 'orders') return res.status(403).json({success:false,message:'工作流Excel只能从订单管理页面导入'});
 
     const excelContext=buildWorkflowExcelContext(rows);
     excelContext.snapshotDate = snapshotDate;
@@ -1019,34 +1020,7 @@ app.post('/api/workflow/import', requireEdit, (req,res)=>{
 
     const productRows=db.prepare('SELECT * FROM product_data').all();
     const productMap=new Map(productRows.map(p=>[normalizeProductCode(p.product_code),p]));
-    for (const [code,p] of excelContext.products) {
-      const existing=productMap.get(code);
-      productMap.set(code, {...existing,...p});
-    }
-
-    // 自动把刀模/工艺/模数跳距写回产品主数据，设备字段单独保存。
-    const upsertProduct=db.prepare(`
-      INSERT INTO product_data(product_code,product_name,mold,process,capacity,mold_change_time,remark,machines,mold_count,jump_distance)
-      VALUES(?,?,?,?,?,?,?,?,?,?)
-      ON CONFLICT(product_code) DO UPDATE SET
-        product_name=CASE WHEN NULLIF(product_data.product_name,'') IS NULL AND excluded.product_name<>'' THEN excluded.product_name ELSE product_data.product_name END,
-        mold=CASE WHEN NULLIF(product_data.mold,'') IS NULL AND excluded.mold<>'' THEN excluded.mold ELSE product_data.mold END,
-        process=CASE WHEN NULLIF(product_data.process,'') IS NULL AND excluded.process<>'' THEN excluded.process ELSE product_data.process END,
-        machines=CASE WHEN NULLIF(product_data.machines,'') IS NULL AND excluded.machines<>'' THEN excluded.machines ELSE product_data.machines END,
-        mold_count=COALESCE(product_data.mold_count,excluded.mold_count),
-        jump_distance=COALESCE(product_data.jump_distance,excluded.jump_distance)
-    `);
-    const productTx=db.transaction(()=>{
-      for(const [code,p] of excelContext.products) {
-        upsertProduct.run(code,p.product_name||'',p.mold||'',p.process||'',Number(p.capacity)>0?Number(p.capacity):1000,Number(p.mold_change_time)>=0?Number(p.mold_change_time):30,'Excel自动识别',p.machines||'',Number.isFinite(p.mold_count)?p.mold_count:null,Number.isFinite(p.jump_distance)?p.jump_distance:null);
-      }
-    });
-    productTx();
-
-    // 重新加载主数据，确保“品号→刀模/工艺/设备”匹配使用最新结果。
-    const mergedRows=db.prepare('SELECT * FROM product_data').all();
-    const mergedMap=new Map(mergedRows.map(p=>[normalizeProductCode(p.product_code),p]));
-    const normalized=workRows.map((r,i)=>extractWorkflowRow(r,i,mergedMap,excelContext));
+    const normalized=workRows.map((r,i)=>extractWorkflowRow(r,i,productMap,excelContext));
 
     const batch=db.prepare('INSERT INTO workflow_import_batches(snapshot_date,imported_at,filename,row_count) VALUES (?,?,?,?)').run(snapshotDate,new Date().toISOString(),filename,normalized.length);
     const insertSnap=db.prepare(`INSERT INTO workflow_snapshots(
@@ -1457,6 +1431,7 @@ function autoNormalizeImportedOrder(row, index, productMap) {
 app.post('/api/orders/import-normalize', requireEdit, (req, res) => {
   try {
     const rows = Array.isArray(req.body?.rows) ? req.body.rows : [];
+    if (req.body?.source_page !== 'orders') return res.status(403).json({success:false,message:'订单Excel只能从订单管理页面导入'});
     if (!rows.length) return res.status(400).json({success:false,message:'Excel 没有可导入的数据'});
     const productRows = db.prepare('SELECT * FROM product_data').all();
     const productMap = new Map(productRows.map(p => [normalizeImportText(p.product_code), p]));
@@ -1480,6 +1455,7 @@ app.post('/api/orders/import-normalize', requireEdit, (req, res) => {
 app.post('/api/orders/batch-import', requireEdit, (req, res) => {
   try {
     const { orders } = req.body;
+    if (req.body?.source_page !== 'orders') return res.status(403).json({success:false,message:'订单Excel只能从订单管理页面导入'});
     if (!Array.isArray(orders) || orders.length === 0) {
       return res.status(400).json({ success: false, message: '导入数据不能为空' });
     }
@@ -1572,6 +1548,7 @@ app.post('/api/product-data/batch-delete', requireEdit, (req, res) => {
 // 批量导入产品数据
 app.post('/api/product-data/batch-import', requireEdit, (req, res) => {
   const { products } = req.body;
+  if (req.body?.source_page !== 'products') return res.status(403).json({success:false,message:'产品数据Excel只能从产品数据页面导入'});
   if (!Array.isArray(products) || products.length === 0) {
     return res.json({ success: false, message: '导入数据不能为空' });
   }
@@ -1637,6 +1614,39 @@ app.delete('/api/machines/:id', requireEdit, (req, res) => {
   res.json({ success: true });
 });
 
+// V5.2: 设备Excel只能由“设备管理”页面写入 machines。
+app.post('/api/machines/batch-import', requireEdit, (req, res) => {
+  try {
+    if (req.body?.source_page !== 'machines') return res.status(403).json({success:false,message:'设备Excel只能从设备管理页面导入'});
+    const items = Array.isArray(req.body?.machines) ? req.body.machines : [];
+    if (!items.length) return res.status(400).json({success:false,message:'设备Excel没有可导入的数据'});
+    const findExisting = db.prepare('SELECT id FROM machines WHERE name=? ORDER BY id ASC LIMIT 1');
+    const insert = db.prepare('INSERT INTO machines(name,machine_type,status,remark) VALUES (?,?,?,?)');
+    const update = db.prepare('UPDATE machines SET machine_type=?, status=?, remark=? WHERE id=?');
+    let created = 0;
+    let updated = 0;
+    const tx = db.transaction(() => {
+      for (const m of items) {
+        const name = normalizeImportText(m.name);
+        if (!name) continue;
+        const type = normalizeImportText(m.machine_type) || '其他设备';
+        const statusText = normalizeImportText(m.status).toLowerCase();
+        const status = ['inactive','停用','禁用','关闭','停机'].includes(statusText) ? 'inactive' : 'active';
+        const remark = normalizeImportText(m.remark);
+        const existing = findExisting.get(name);
+        if (existing) { update.run(type,status,remark,existing.id); updated += 1; }
+        else { insert.run(name,type,status,remark); created += 1; }
+      }
+    });
+    tx();
+    audit(req,'import','machines','',{source:'excel-machine-page',created,updated,count:items.length});
+    io.emit('machine_update');
+    res.json({success:true,count:items.length,created,updated});
+  } catch (err) {
+    console.error('设备Excel导入失败:', err.stack || err.message);
+    res.status(500).json({success:false,message:'设备Excel导入失败：'+err.message});
+  }
+});
 // ================== 智能排程（APS 增强版） ==================
 // 设计原则：
 // 1) 有限产能：一台设备同一时刻只允许一个任务。
@@ -2852,3 +2862,4 @@ const PORT = process.env.PORT || 3000;
 server.listen(PORT, '0.0.0.0', () => {
   console.log(`✅ 服务器已启动，访问地址: http://localhost:${PORT}`);
 });
+// V5.2-IMPORT-DATA-SCOPE-ISOLATION
