@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>模切行业智能排程系统</title>
   <script src="/socket.io/socket.io.js"></script>
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
   <link href="https://cdn.datatables.net/1.13.6/css/dataTables.bootstrap5.min.css" rel="stylesheet">
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
@@ -49,7 +49,12 @@
     .sub-tab { cursor: pointer; padding: 8px 16px; border-radius: 20px; font-weight: 500; font-size: 13px; transition: all 0.2s; }
     .sub-tab.active { background: var(--primary); color: #fff; }
     .sub-tab:not(.active) { background: #f1f3f4; color: #333; }
-    @media (max-width: 768px) { .sidebar { transform: translateX(-100%); } .sidebar.open { transform: translateX(0); } .main-content { margin-left: 0; } .mobile-menu-btn { display: block !important; } }
+    @media (max-width: 768px) {
+      .sidebar { transform: translateX(-100%); }
+      .sidebar.open { transform: translateX(0); }
+      .main-content { margin-left: 0; }
+      .mobile-menu-btn { display: block !important; }
+    }
     .mobile-menu-btn { display: none; cursor: pointer; font-size: 22px; }
     .overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 999; display: none; }
     .overlay.show { display: block; }
@@ -83,12 +88,14 @@
     .btn:disabled { cursor: not-allowed; opacity: .65; }
     .api-error { border-left: 4px solid #dc3545; background: #fff5f5; }
     .gantt-track { min-width: 960px; }
-    .workflow-tabs{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}.workflow-tab{padding:9px 14px;border-radius:10px;background:#eef1f5;color:#334155;cursor:pointer;font-weight:600}.workflow-tab.active{background:#1a73e8;color:#fff}.workflow-kpi{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:14px}.workflow-kpi .box{background:#fff;border:1px solid #e6eaf0;border-radius:12px;padding:14px}.workflow-kpi .rate{font-size:24px;font-weight:800}.workflow-alert{background:#fff4f4;border:1px solid #ffc8c8;border-radius:10px;padding:10px 12px;margin-bottom:10px}.workflow-muted{color:#64748b;font-size:12px}@media(max-width:900px){.workflow-kpi{grid-template-columns:repeat(2,minmax(0,1fr))}}
-    .workflow-subnav-count{display:inline-flex;min-width:20px;height:18px;align-items:center;justify-content:center;padding:0 5px;margin-left:auto;border-radius:9px;background:#e8eef7;color:#334155;font-size:11px;font-weight:800}.workflow-board-toolbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:10px 0}.workflow-board-toolbar .form-control,.workflow-board-toolbar .form-select{min-width:170px}.workflow-board-table{width:100%!important}.workflow-board-table th{white-space:nowrap;cursor:pointer}.workflow-alerts{margin-top:10px}
-  </style>
+  
+.workflow-tabs{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}.workflow-tab{padding:9px 14px;border-radius:10px;background:#eef1f5;color:#334155;cursor:pointer;font-weight:600}.workflow-tab.active{background:#1a73e8;color:#fff}.workflow-kpi{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:14px}.workflow-kpi .box{background:#fff;border:1px solid #e6eaf0;border-radius:12px;padding:14px}.workflow-kpi .rate{font-size:24px;font-weight:800}.workflow-alert{background:#fff4f4;border:1px solid #ffc8c8;border-radius:10px;padding:10px 12px;margin-bottom:10px}.workflow-muted{color:#64748b;font-size:12px}@media(max-width:900px){.workflow-kpi{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.workflow-subnav-count{display:inline-flex;min-width:20px;height:18px;align-items:center;justify-content:center;padding:0 5px;margin-left:auto;border-radius:9px;background:#e8eef7;color:#334155;font-size:11px;font-weight:800}.workflow-board-toolbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:10px 0}.workflow-board-toolbar .form-control,.workflow-board-toolbar .form-select{min-width:170px}.workflow-board-table{width:100%!important}.workflow-board-table th{white-space:nowrap;cursor:pointer}.workflow-alerts{margin-top:10px}
+</style>
 </head>
 <body>
   <div class="overlay" id="overlay" onclick="closeSidebar()"></div>
+
   <div class="sidebar" id="sidebar">
     <div class="sidebar-header"><div class="logo-icon"><i class="bi bi-gear-fill"></i></div><h5>模切排程系统</h5></div>
     <nav class="sidebar-nav" id="sidebarNav">
@@ -108,10 +115,15 @@
     </nav>
     <div class="sidebar-footer"><small id="sidebar-user-info">未登录</small></div>
   </div>
+
   <div class="main-content" id="mainContent" onclick="closeSidebar()">
     <div class="top-bar">
       <div style="display:flex;align-items:center;gap:12px;"><span class="mobile-menu-btn" onclick="toggleSidebar(event)"><i class="bi bi-list"></i></span><span class="page-title" id="pageTitle">仪表盘</span></div>
-      <div class="user-info"><span id="currentUsername"></span><span class="badge-role" id="currentRoleBadge"></span><button class="btn btn-outline-secondary btn-sm" onclick="openChangePassword()" title="修改密码"><i class="bi bi-key"></i></button><button class="btn btn-outline-secondary btn-sm" onclick="logout()"><i class="bi bi-box-arrow-right"></i> 退出</button></div>
+      <div class="user-info">
+        <span id="currentUsername"></span><span class="badge-role" id="currentRoleBadge"></span>
+        <button class="btn btn-outline-secondary btn-sm" onclick="openChangePassword()" title="修改密码"><i class="bi bi-key"></i></button>
+        <button class="btn btn-outline-secondary btn-sm" onclick="logout()"><i class="bi bi-box-arrow-right"></i> 退出</button>
+      </div>
     </div>
     <div class="content-area" id="contentArea"></div>
   </div>
@@ -120,8 +132,84 @@
   <div class="modal fade" id="loginModal" data-bs-backdrop="static">
     <div class="modal-dialog modal-sm"><div class="modal-content">
       <div class="modal-header"><h5 class="modal-title">系统登录</h5></div>
-      <div class="modal-body"><div class="mb-3"><label class="form-label">用户名</label><input class="form-control" id="loginUsername" value="admin"></div><div class="mb-3"><label class="form-label">密码</label><input type="password" class="form-control" id="loginPassword"></div><div id="loginError" class="text-danger small"></div></div>
-      <div class="modal-footer"><button class="btn btn-primary w-100" onclick="login()">登录</button></div>
+      <div class="modal-body">
+        <div class="mb-3"><label class="form-label">用户名</label><input type="text" class="form-control" id="loginUsername" placeholder="请输入用户名" autocomplete="off"></div>
+        <div class="mb-3"><label class="form-label">密码</label>
+          <div class="input-group"><input type="password" class="form-control" id="loginPassword" placeholder="请输入密码" autocomplete="off">
+            <button class="btn btn-outline-secondary" type="button" onclick="togglePassword('loginPassword', this)"><i class="bi bi-eye"></i></button>
+          </div>
+        </div>
+        <div id="loginError" class="text-danger small mb-2" style="display:none;"></div>
+        <button class="btn btn-primary w-100" onclick="handleLogin()">登录</button>
+      </div>
+    </div></div>
+  </div>
+
+  <!-- 修改密码弹窗 -->
+  <div class="modal fade" id="changePwdModal">
+    <div class="modal-dialog modal-sm"><div class="modal-content">
+      <div class="modal-header"><h5 class="modal-title">修改密码</h5><button class="btn-close" data-bs-dismiss="modal"></button></div>
+      <div class="modal-body">
+        <div class="mb-3"><label class="form-label">原密码</label><div class="input-group"><input type="password" class="form-control" id="oldPassword"><button class="btn btn-outline-secondary" type="button" onclick="togglePassword('oldPassword', this)"><i class="bi bi-eye"></i></button></div></div>
+        <div class="mb-3"><label class="form-label">新密码</label><div class="input-group"><input type="password" class="form-control" id="newPassword"><button class="btn btn-outline-secondary" type="button" onclick="togglePassword('newPassword', this)"><i class="bi bi-eye"></i></button></div></div>
+        <div id="pwdError" class="text-danger small mb-2"></div>
+        <button class="btn btn-primary w-100" onclick="changePassword()">确认修改</button>
+      </div>
+    </div></div>
+  </div>
+
+  <!-- AI助手弹窗 -->
+  <div class="modal fade" id="aiModal">
+    <div class="modal-dialog"><div class="modal-content">
+      <div class="modal-header"><h5 class="modal-title"><i class="bi bi-robot"></i> 智能助手</h5><button class="btn-close" data-bs-dismiss="modal"></button></div>
+      <div class="modal-body" style="max-height:400px;overflow-y:auto;">
+        <div id="aiChatHistory" class="mb-3"></div>
+        <div class="input-group"><input type="text" class="form-control" id="aiQuestion" placeholder="例如：WO2024001 工单已完工" onkeydown="if(event.key==='Enter')askAI()"><button class="btn btn-primary" onclick="askAI()">发送</button></div>
+      </div>
+    </div></div>
+  </div>
+
+  <!-- 完工确认弹窗 -->
+  <div class="modal fade" id="completeModal">
+    <div class="modal-dialog"><div class="modal-content">
+      <div class="modal-header"><h5 class="modal-title" id="completeModalTitle">完工确认</h5><button class="btn-close" data-bs-dismiss="modal"></button></div>
+      <div class="modal-body">
+        <input type="hidden" id="completeScheduleId">
+        <div class="row">
+          <div class="col-md-6 mb-3"><label class="form-label">换模开始</label><input type="datetime-local" class="form-control" id="completeMoldStart"></div>
+          <div class="col-md-6 mb-3"><label class="form-label">换模结束</label><input type="datetime-local" class="form-control" id="completeMoldEnd"></div>
+          <div class="col-md-6 mb-3"><label class="form-label">生产开始</label><input type="datetime-local" class="form-control" id="completeStart"></div>
+          <div class="col-md-6 mb-3"><label class="form-label">生产结束</label><input type="datetime-local" class="form-control" id="completeEnd"></div>
+          <div class="col-md-6 mb-3"><label class="form-label">产量</label><input type="number" class="form-control" id="completeQuantity"></div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+        <button class="btn btn-primary" id="btnConfirmComplete" onclick="confirmCompleteSchedule()">确认完工</button>
+      </div>
+    </div></div>
+  </div>
+
+  <!-- 产品数据弹窗 -->
+  <div class="modal fade" id="productModal">
+    <div class="modal-dialog"><div class="modal-content">
+      <div class="modal-header"><h5 class="modal-title" id="productModalTitle">产品数据</h5><button class="btn-close" data-bs-dismiss="modal"></button></div>
+      <div class="modal-body">
+        <input type="hidden" id="productId">
+        <div class="row">
+          <div class="col-md-6 mb-3"><label class="form-label">品号 *</label><input class="form-control" id="productDataCode" placeholder="如 P-001"></div>
+          <div class="col-md-6 mb-3"><label class="form-label">品名</label><input class="form-control" id="productDataName"></div>
+          <div class="col-md-6 mb-3"><label class="form-label">刀模</label><input class="form-control" id="productDataMold"></div>
+          <div class="col-md-6 mb-3"><label class="form-label">设备</label><select class="form-select" id="productDataProcess"></select></div>
+          <div class="col-md-6 mb-3"><label class="form-label">产能(pcs/h)</label><input type="number" class="form-control" id="productDataCapacity" value="1000"></div>
+          <div class="col-md-6 mb-3"><label class="form-label">换模时间(分钟)</label><input type="number" class="form-control" id="productDataMoldChangeTime" value="30"></div>
+          <div class="col-12 mb-3"><label class="form-label">备注</label><input class="form-control" id="productDataRemark"></div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+        <button class="btn btn-primary" onclick="saveProduct()">保存</button>
+      </div>
     </div></div>
   </div>
 
@@ -129,7 +217,8 @@
   <div class="loading-overlay" id="loadingOverlay" style="display:none;"><div class="spinner-lg"></div></div>
 
   <script>
-    // V5.1.5-WORKFLOW-UI-RESTORED
+
+    // DataTables 中文全局配置
     $.fn.dataTable.defaults.language = {
       "processing": "处理中...",
       "lengthMenu": "每页显示 _MENU_ 条记录",
@@ -140,10 +229,6 @@
       "search": "搜索：",
       "paginate": { "first": "首页", "previous": "上一页", "next": "下一页", "last": "末页" }
     };
-    $.extend(true, $.fn.dataTable.defaults, {
-      pageLength: 15,
-      lengthMenu: [[10,15,25,50,100,-1],[10,15,25,50,100,'当前最多']]
-    });
 
     let currentUser = null;
     let currentPage = 'dashboard';
@@ -151,25 +236,948 @@
     let currentWorkflowStage = 'shortage';
     let workflowBoardData = null;
     let workflowKpiData = null;
+    // V5.1.4-WORKFLOW-UI-VERIFIED
     let workflowStageCounts = {shortage:0, available_to_issue:0, waiting_schedule:0, in_process:0};
     let socket = null;
     let allOrders = [], allMachines = [], allSchedules = [], allProducts = [], workSettings = {};
     let ganttDayWidth = 100;
     let completeEditMode = false;
 
-    function escapeHtml(value) { return String(value ?? '').replace(/[&<>'"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
-    function formatWorkflowDate(value) { if (!value) return '-'; const s=String(value); const m=s.match(/(\\d{4}-\\d{2}-\\d{2})/); return m ? m[1] : s.slice(0,10); }
-    function formatTime(value) { if (!value) return '-'; const d=new Date(value); return Number.isNaN(d.getTime()) ? String(value).slice(11,16) : d.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}); }
-    function showToast(message, type='info') { const id='t'+Date.now(); const bg=type==='success'?'bg-success':type==='danger'?'bg-danger':type==='warning'?'bg-warning text-dark':'bg-info'; $('#toastContainer').append(`<div id="${id}" class="toast ${bg} text-white" role="alert"><div class="d-flex"><div class="toast-body">${escapeHtml(message)}</div><button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button></div></div>`); const el=document.getElementById(id); new bootstrap.Toast(el,{delay:3500}).show(); setTimeout(()=>el.remove(),4000); }
-    function showLoading(){document.getElementById('loadingOverlay').style.display='flex';}
-    function hideLoading(){document.getElementById('loadingOverlay').style.display='none';}
-    async function apiJson(url, options={}){ const resp=await fetch(url,options); let data={}; try{data=await resp.json();}catch(e){} if(!resp.ok) throw new Error(data.message||`请求失败（HTTP ${resp.status}）`); return data; }
+    const nativeFetch = window.fetch.bind(window);
 
-    function toggleSidebar(e){ e.stopPropagation(); document.getElementById('sidebar').classList.toggle('open'); document.getElementById('overlay').classList.toggle('show'); }
-    function closeSidebar(){ document.getElementById('sidebar').classList.remove('open'); document.getElementById('overlay').classList.remove('show'); }
-    function updateScheduleSidebar(){ const sub=document.getElementById('scheduleSubnav'); if(!sub)return; sub.style.display=currentPage==='schedule'?'block':'none'; sub.querySelectorAll('.schedule-subnav-link').forEach(el=>el.classList.toggle('active',currentSubTab==='workflow'&&el.dataset.workflowStage===currentWorkflowStage)); }
-    function switchWorkflowStageFromSidebar(stage){ if(currentPage!=='schedule')currentPage='schedule'; currentSubTab='workflow'; currentWorkflowStage=stage; navigateTo('schedule',true); }
-    function navigateTo(page,silent=false){ currentPage=page; document.querySelectorAll('.nav-link').forEach(l=>l.classList.remove('active')); document.querySelector(`.nav-link[data-page="${page}"]`)?.classList.add('active'); updateScheduleSidebar(); const titles={dashboard:'仪表盘',orders:'订单管理',schedule:'排产看板',machines:'设备管理',products:'产品数据',users:'用户管理',settings:'系统设置'}; document.getElementById('pageTitle').textContent=titles[page]||page; if(page==='schedule')loadSchedule(); else if(page==='orders')loadOrders(); else if(page==='machines')loadMachines(); else if(page==='products')loadProducts(); else if(page==='users')loadUsers(); else if(page==='settings')loadSettings(); else renderDashboard(); if(!silent)closeSidebar(); }
+    function escapeHtml(value) {
+      return String(value ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+
+    // 统一给所有修改类 API 自动带上 CSRF Token，避免漏加导致接口保护失效。
+    window.fetch = (input, options = {}) => {
+      const url = typeof input === 'string' ? input : input?.url || '';
+      const method = String(options.method || (typeof input !== 'string' && input?.method) || 'GET').toUpperCase();
+      const isApiMutation = url.startsWith('/api/') && ['POST','PUT','PATCH','DELETE'].includes(method);
+      const headers = new Headers(options.headers || (typeof input !== 'string' ? input?.headers : undefined));
+      if (isApiMutation && currentUser?.csrf_token) {
+        headers.set('X-CSRF-Token', currentUser.csrf_token);
+      }
+      return nativeFetch(input, { ...options, headers });
+    };
+
+    window.addEventListener('unhandledrejection', (event) => {
+      console.error('Unhandled promise rejection:', event.reason);
+      showToast('操作失败，请检查网络或服务器状态', 'danger');
+    });
+
+    // 所有列表统一分页：10 / 15 / 25 / 50 / 100 / 当前最多。
+    if (window.jQuery && $.fn && $.fn.dataTable) {
+      $.extend(true, $.fn.dataTable.defaults, {
+        pageLength: 15,
+        lengthMenu: [[10,15,25,50,100,-1],[10,15,25,50,100,'当前最多']]
+      });
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      fetch('/api/auth/status')
+        .then(async r => {
+          const d = await r.json();
+          if (d.logged_in) {
+            currentUser = d.user;
+            updateUI();
+            initSocket();
+            navigateTo('dashboard');
+          } else {
+            showLogin();
+          }
+        })
+        .catch(() => showLogin());
+    });
+
+    function showLogin() { new bootstrap.Modal(document.getElementById('loginModal')).show(); }
+
+    async function handleLogin() {
+      const btn = document.querySelector('#loginModal button.btn-primary.w-100');
+      const loginError = document.getElementById('loginError');
+      loginError.style.display = 'none';
+      if (btn) btn.disabled = true;
+      try {
+        const d = await apiJson('/api/auth/login', {
+          method:'POST',
+          headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({
+            username: document.getElementById('loginUsername').value.trim(),
+            password: document.getElementById('loginPassword').value
+          })
+        });
+        currentUser = d.user;
+        updateUI(); initSocket();
+        bootstrap.Modal.getInstance(document.getElementById('loginModal')).hide();
+        navigateTo('dashboard');
+      } catch (e) {
+        loginError.textContent = e.message || '登录失败';
+        loginError.style.display = 'block';
+      } finally {
+        if (btn) btn.disabled = false;
+      }
+    }
+
+    function logout() { fetch('/api/auth/logout',{method:'POST'}).then(()=>{ currentUser=null; if(socket)socket.disconnect(); location.reload(); }); }
+
+    function updateUI() {
+      if(!currentUser) return;
+      document.getElementById('currentUsername').textContent = currentUser.username;
+      const roleMap = {admin:'管理员',editor:'编辑者',viewer:'查看者'};
+      document.getElementById('currentRoleBadge').textContent = roleMap[currentUser.role] || currentUser.role;
+      document.getElementById('sidebar-user-info').textContent = `👤 ${currentUser.username}`;
+      document.getElementById('nav-users').style.display = currentUser.role === 'admin' ? 'block' : 'none';
+    }
+
+    function initSocket() {
+      if(socket) socket.disconnect();
+      socket = io();
+      socket.on('schedule_update', (data) => { if(currentPage==='schedule'||currentPage==='dashboard') refreshPage(); if(data.message) showToast(data.message); });
+      socket.on('order_update', () => { if(currentPage==='orders'||currentPage==='products') refreshPage(); });
+      socket.on('machine_update', () => { if(currentPage==='machines'||currentPage==='products') refreshPage(); });
+      socket.on('product_update', () => { if(currentPage==='products') refreshPage(); });
+    }
+
+    function refreshPage() { navigateTo(currentPage, true); }
+
+    function showToast(msg, type='info') {
+      const toast = document.createElement('div');
+      toast.className = `toast align-items-center text-white bg-${type} border-0`;
+      toast.innerHTML = `<div class="d-flex"><div class="toast-body">${escapeHtml(msg)}</div><button class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button></div>`;
+      document.getElementById('toastContainer').appendChild(toast);
+      new bootstrap.Toast(toast).show();
+    }
+
+    function showLoading() { document.getElementById('loadingOverlay').style.display='flex'; }
+    function hideLoading() { document.getElementById('loadingOverlay').style.display='none'; }
+    async function apiJson(url, options = {}) {
+      const resp = await fetch(url, options);
+      let data = {};
+      try { data = await resp.json(); } catch (_) {}
+      if (resp.status === 401) {
+        currentUser = null;
+        if (socket) socket.disconnect();
+        showLogin();
+      }
+      if (!resp.ok) {
+        const message = data.message || `请求失败（HTTP ${resp.status}）`;
+        throw new Error(message);
+      }
+      return data;
+    }
+
+
+    function toggleSidebar(e) { e.stopPropagation(); document.getElementById('sidebar').classList.toggle('open'); document.getElementById('overlay').classList.toggle('show'); }
+    function closeSidebar() { document.getElementById('sidebar').classList.remove('open'); document.getElementById('overlay').classList.remove('show'); }
+
+    function updateScheduleSidebar() {
+      const sub = document.getElementById('scheduleSubnav');
+      if (!sub) return;
+      sub.style.display = currentPage === 'schedule' ? 'block' : 'none';
+      sub.querySelectorAll('.schedule-subnav-link').forEach(el => {
+        el.classList.toggle('active', currentSubTab === 'workflow' && el.dataset.workflowStage === currentWorkflowStage);
+      });
+    }
+
+    function switchWorkflowStageFromSidebar(stage) {
+      if (currentPage !== 'schedule') currentPage = 'schedule';
+      currentSubTab = 'workflow';
+      currentWorkflowStage = stage;
+      navigateTo('schedule', true);
+    }
+
+    function navigateTo(page, silent=false) {
+      currentPage = page;
+      document.querySelectorAll('.nav-link').forEach(l => l.classList.remove('active'));
+      document.querySelector(`[data-page="${page}"]`)?.classList.add('active');
+      const titleMap = {dashboard:'仪表盘',orders:'订单管理',schedule:'排产看板',machines:'设备管理',products:'产品数据',users:'用户管理',settings:'系统设置'};
+      document.getElementById('pageTitle').textContent = titleMap[page] || '';
+      updateScheduleSidebar();
+      if(!silent) showLoading();
+      closeSidebar();
+      switch(page) {
+        case 'dashboard': loadDashboard(); break;
+        case 'orders': loadOrders(); break;
+        case 'schedule': loadSchedule(); break;
+        case 'machines': loadMachines(); break;
+        case 'products': loadProducts(); break;
+        case 'users': loadUsers(); break;
+        case 'settings': loadSettings(); break;
+      }
+    }
+
+    function togglePassword(inputId, btn) {
+      const input = document.getElementById(inputId);
+      if (!input) return;
+      const isPassword = input.type === 'password';
+      input.type = isPassword ? 'text' : 'password';
+      const icon = btn.querySelector('i');
+      if (icon) icon.className = isPassword ? 'bi bi-eye-slash' : 'bi bi-eye';
+    }
+
+    // ========== 仪表盘 ==========
+    function loadDashboard() {
+      Promise.all([
+        fetch('/api/orders').then(r=>r.json()),
+        fetch('/api/machines').then(r=>r.json()),
+        fetch('/api/schedules').then(r=>r.json()),
+        fetch('/api/settings').then(r=>r.json()),
+        fetch('/api/schedule/analysis').then(r=>r.json()),
+        fetch('/api/schedule/risk').then(r=>r.json())
+      ]).then(([o,m,s,st,a,risk]) => {
+        allOrders = o.orders || []; allMachines = m.machines || []; allSchedules = s.schedules || []; workSettings = st.settings || {};
+        const analysis = a || {};
+        const kpi = analysis.kpi || {};
+        const pending = allOrders.filter(o => o.status === 'pending').length;
+        const scheduled = allOrders.filter(o => o.status === 'scheduled').length;
+        const completed = allOrders.filter(o => o.status === 'completed').length;
+        const activeSchedules = allSchedules.filter(s => s.status !== 'completed');
+        const late = activeSchedules.filter(s => {
+          const order = allOrders.find(o => o.id === s.order_id);
+          const due = getEffectiveDue(order); return due && new Date(s.end_time) > due;
+        }).length;
+        document.getElementById('contentArea').innerHTML = `
+          <div class="row g-3 mb-3">
+            <div class="col-md-3"><div class="card-custom metric-card p-3 text-center"><h3 class="text-warning">${pending}</h3><small>待排产订单</small></div></div>
+            <div class="col-md-3"><div class="card-custom metric-card p-3 text-center"><h3 class="text-primary">${scheduled}</h3><small>已排产订单</small></div></div>
+            <div class="col-md-3"><div class="card-custom metric-card p-3 text-center"><h3 class="text-danger">${late}</h3><small>预计延期任务</small></div></div>
+            <div class="col-md-3"><div class="card-custom metric-card p-3 text-center"><h3 class="text-info">${allMachines.length}</h3><small>设备总数</small></div></div>
+          </div>
+          <div class="row g-3 mb-3">
+            <div class="col-md-4"><div class="card-custom p-3"><div class="small text-muted">平均设备利用率</div><h4 class="mb-0">${Number(kpi.average_utilization || 0).toFixed(1)}%</h4></div></div>
+            <div class="col-md-4"><div class="card-custom p-3"><div class="small text-muted">换模总时长</div><h4 class="mb-0">${Math.round(kpi.total_setup_minutes || 0)} 分钟</h4></div></div>
+            <div class="col-md-4"><div class="card-custom p-3"><div class="small text-muted">当前瓶颈设备</div><h4 class="mb-0">${escapeHtml(kpi.bottleneck_machine || '暂无')}</h4></div></div>
+          </div>
+          <div class="card-custom"><div class="card-header">交期风险 Top 10 <span class="small text-muted">按预计延期与剩余时间排序</span></div><div class="card-body table-responsive"><table class="table table-sm table-hover"><thead><tr><th>工单</th><th>设备</th><th>预计完工</th><th>优先级</th><th>交期</th><th>风险</th><th>剩余</th></tr></thead><tbody>${(risk.items || []).slice(0,10).map(x => `<tr><td>${escapeHtml(x.order_number || '')}</td><td>${escapeHtml((allMachines.find(m=>m.id===x.machine_id)||{}).name || '-')}</td><td>${formatTime(x.end_time)}</td><td><span class="status-badge priority-${x.priority_level || '2'}">${escapeHtml(x.priority_label || '-')}</span></td><td>${formatTime(x.shipping_required_date || x.delivery_date || x.delivery_time)}</td><td><span class="status-badge risk-${x.risk_level}">${escapeHtml(x.risk_label)}</span></td><td>${x.hours_to_due == null ? '-' : (x.hours_to_due < 0 ? `延期 ${Math.abs(x.hours_to_due)}h` : `${x.hours_to_due}h`)}</td></tr>`).join('') || '<tr><td colspan="7" class="text-muted">暂无风险任务</td></tr>'}</tbody></table></div></div>
+          <div class="card-custom"><div class="card-header">设备负荷排行</div><div class="card-body">
+            <div class="table-responsive"><table class="table table-sm table-hover"><thead><tr><th>设备</th><th>任务</th><th>生产时间</th><th>换模</th><th>利用率</th><th>延期</th><th>瓶颈评分</th></tr></thead><tbody>${(analysis.machines || []).slice(0,8).map(x => `<tr><td>${escapeHtml(x.machine_name)}</td><td>${x.task_count}</td><td>${x.production_minutes} 分钟</td><td>${x.setup_minutes} 分钟</td><td><strong>${x.utilization}%</strong></td><td>${x.late_count}</td><td>${x.bottleneck_score}</td></tr>`).join('') || '<tr><td colspan="7" class="text-muted">暂无数据</td></tr>'}</tbody></table></div>
+          </div></div>
+          <div class="card-custom"><div class="card-header">快捷操作 <span class="small text-muted">系统实时运行</span></div><div class="card-body">
+            <button class="btn btn-primary m-1" onclick="navigateTo('orders')">新增订单</button>
+            <button class="btn btn-success m-1" onclick="runAutoSchedule()">V5智能排程</button>
+            <button class="btn btn-info m-1" onclick="navigateTo('schedule')">排产看板</button>
+            <button class="btn btn-outline-secondary m-1" onclick="healthCheck()">系统检查</button>
+            <button class="btn btn-secondary m-1" onclick="openAIAssistant()">AI 助手</button>
+          </div></div>`;
+        hideLoading();
+      });
+    }
+
+    async function runAutoSchedule() {
+      if(currentUser.role === 'viewer') { showToast('无操作权限', 'warning'); return; }
+      if(!confirm('确认执行智能排程？系统会按交期、设备适配、刀模换模和设备负载重新计算未完工订单。')) return;
+      showLoading();
+      try {
+        const pre = await apiJson('/api/schedule/precheck');
+        if (!pre.ready) {
+          hideLoading();
+          showToast('排程预检未通过：' + pre.issues.join('；'), 'warning');
+          return;
+        }
+        const data = await apiJson('/api/schedule/auto-run', { method:'POST' });
+        hideLoading();
+
+        if(data.success) {
+          const lateText = Number(data.late_count || 0) > 0 ? `，预计延期 ${data.late_count} 单` : '，当前无预计延期订单';
+          showToast(`V5智能排程完成：${data.schedule_count} 单${lateText}，换模 ${data.total_setup_minutes || 0} 分钟${data.urgent_count ? `，急单 ${data.urgent_count}` : ''}`, 'success');
+          if (data.created_machines && data.created_machines.length) {
+            showToast(`已自动补齐 ${data.created_machines.length} 台订单设备`, 'info');
+          }
+          if(data.unscheduled && data.unscheduled.length) {
+            const sample = data.unscheduled.slice(0, 3).map(x => `${x.order_number || x.id}:${x.process || '未填写设备'}`).join('、');
+            showToast(`仍有 ${data.unscheduled.length} 单未排：${sample}${data.unscheduled.length > 3 ? '……' : ''}`, 'warning');
+          }
+          navigateTo('schedule');
+        } else {
+          showToast(data.message || '排程失败', 'danger');
+        }
+      } catch(e) {
+        hideLoading();
+        showToast('网络错误，请检查服务器日志', 'danger');
+      }
+    }
+
+    function getOrderPriorityInfo(order) {
+      if (order?.shipping_required_date) return { level: '一级', label: '出货需求日期', date: order.shipping_required_date };
+      if (order?.delivery_date || order?.delivery_time) return { level: '二级', label: '交货日期', date: order.delivery_date || order.delivery_time };
+      return { level: '三级', label: '无日期后置', date: null };
+    }
+    function getEffectiveDue(order) {
+      const info = getOrderPriorityInfo(order);
+      return info.date ? new Date(info.date) : null;
+    }
+
+    // ========== 订单管理 ==========
+    function loadOrders() {
+      fetch('/api/machines').then(r=>r.json()).then(mRes => {
+        allMachines = mRes.machines || [];
+        const deviceNames = [...new Set(allMachines.map(m => m.name))];
+        return fetch('/api/orders').then(r=>r.json()).then(d => {
+          allOrders = d.orders || [];
+          const statusMap = { pending:'<span class="status-badge status-pending">待排产</span>', scheduled:'<span class="status-badge status-scheduled">已排产</span>', completed:'<span class="status-badge status-completed">已完成</span>' };
+          let rows = '';
+          allOrders.forEach(o => {
+            rows += `<tr>
+              <td><input type="checkbox" class="order-checkbox" value="${Number(o.id)}"></td>
+              <td>${escapeHtml(o.order_number||'-')}</td><td>${escapeHtml(o.product_code||'-')}</td><td>${escapeHtml(o.product_name||'-')}</td>
+              <td>${Number(o.quantity)||0}</td><td>${Number(o.shipping_quantity)||0}</td>
+              <td>${o.shipping_required_date?escapeHtml(String(o.shipping_required_date).slice(0,10)):'-'}</td>
+              <td>${o.delivery_date?escapeHtml(String(o.delivery_date).slice(0,10)):(o.delivery_time?escapeHtml(String(o.delivery_time).slice(0,10)):'-')}</td>
+              <td><span class="status-badge priority-${getOrderPriorityInfo(o).level === '一级' ? '1' : getOrderPriorityInfo(o).level === '二级' ? '2' : '3'}">${getOrderPriorityInfo(o).level}</span><div class="small text-muted">${getOrderPriorityInfo(o).label}</div></td>
+              <td>${escapeHtml(o.process||'-')}</td><td>${escapeHtml(o.mold||'-')}</td><td>${statusMap[o.status]||escapeHtml(o.status||'-')}</td>
+              <td>${currentUser.role!=='viewer'?`<button class="btn btn-sm btn-outline-primary me-1" onclick="editOrder(${Number(o.id)})">编辑</button><button class="btn btn-sm btn-outline-danger" onclick="deleteOrder(${Number(o.id)})">删除</button>`:'-'}</td>
+            </tr>`;
+          });
+          document.getElementById('contentArea').innerHTML = `
+            <div class="card-custom">
+              <div class="card-header">订单列表
+                <div>${currentUser.role!=='viewer'?`
+                  <button class="btn btn-sm btn-outline-success me-1" onclick="downloadTemplate()">模板</button>
+                  <label class="btn btn-sm btn-outline-info me-1"><input type="file" hidden accept=".xlsx,.xls" onchange="importOrders(this)">导入</label>
+                  <button class="btn btn-sm btn-outline-primary me-1" onclick="exportOrders()">导出</button>
+                  <button class="btn btn-sm btn-outline-danger me-1" onclick="batchDeleteOrders()">批量删除</button>
+                  <button class="btn btn-sm btn-primary" onclick="showOrderModal()">新增订单</button>`:''}
+                </div>
+              </div>
+              <div class="card-body"><table class="table table-hover" id="ordersTable"><thead class="table-light"><tr><th><input type="checkbox" id="checkAllOrders" onchange="toggleAllOrders(this)"></th><th>工单编号</th><th>品号</th><th>品名</th><th>工单数量</th><th>出货数量</th><th>出货需求日期</th><th>交货日期</th><th>优先级</th><th>设备</th><th>刀模</th><th>状态</th><th>操作</th></tr></thead><tbody>${rows}</tbody></table></div>
+            </div>
+            <div class="modal fade" id="orderModal"><div class="modal-dialog modal-lg"><div class="modal-content">
+              <div class="modal-header"><h5 class="modal-title" id="orderModalTitle">新增订单</h5><button class="btn-close" data-bs-dismiss="modal"></button></div>
+              <div class="modal-body"><input type="hidden" id="orderId"><div class="row">
+                <div class="col-md-4 mb-3"><label class="form-label">工单编号 *</label><input class="form-control" id="orderNumber"></div>
+                <div class="col-md-4 mb-3"><label class="form-label">产品品号 *</label><input class="form-control" id="productCode" onblur="autoFillProduct()"></div>
+                <div class="col-md-4 mb-3"><label class="form-label">品名 *</label><input class="form-control" id="productName"></div>
+                <div class="col-md-3 mb-3"><label class="form-label">工单数量 *</label><input type="number" class="form-control" id="quantity" value="1000"></div>
+                <div class="col-md-3 mb-3"><label class="form-label">出货数量</label><input type="number" class="form-control" id="shippingQuantity" value="0"></div>
+                <div class="col-md-3 mb-3"><label class="form-label">出货需求日期</label><input type="date" class="form-control" id="shippingRequiredDate"></div>
+                <div class="col-md-3 mb-3"><label class="form-label">交货日期</label><input type="date" class="form-control" id="deliveryDate"></div>
+                <div class="col-md-3 mb-3"><label class="form-label">旧交期兼容</label><input type="date" class="form-control" id="deliveryTime"><div class="form-text">仅用于兼容旧数据</div></div>
+                <div class="col-md-3 mb-3"><label class="form-label">产能(pcs/h)</label><input type="number" class="form-control" id="capacity" value="1000"></div>
+                <div class="col-md-4 mb-3"><label class="form-label">刀模 *</label><input class="form-control" id="mold"></div>
+                <div class="col-md-4 mb-3"><label class="form-label">换模时间(分钟)</label><input type="number" class="form-control" id="moldChangeTime" value="30"></div>
+                <div class="col-md-4 mb-3"><label class="form-label">设备</label><select class="form-select" id="process">${deviceNames.map(n=>`<option>${n}</option>`).join('')}</select></div>
+                <div class="col-md-4 mb-3"><label class="form-label">订单优先级</label><input type="number" min="0" max="100" class="form-control" id="priority" value="0"><div class="form-text">0-100，越大越优先</div></div>
+                <div class="col-md-4 mb-3"><label class="form-label">物料齐套时间</label><input type="datetime-local" class="form-control" id="materialReadyAt"><div class="form-text">未到齐套时间不会提前安排生产</div></div>
+              </div></div>
+              <div class="modal-footer"><button class="btn btn-secondary" data-bs-dismiss="modal">取消</button><button class="btn btn-primary" onclick="saveOrder()">保存</button></div>
+            </div></div></div>`;
+          $('#ordersTable').DataTable({destroy:true, pageLength:15});
+          hideLoading();
+        });
+      }).catch(err => { hideLoading(); showToast('加载失败', 'danger'); });
+    }
+
+    async function autoFillProduct() {
+      const code = document.getElementById('productCode').value.trim();
+      if (!code) return;
+      try {
+        const resp = await fetch(`/api/product-data/by-code/${encodeURIComponent(code)}`);
+        const data = await resp.json();
+        if (data.product) {
+          const p = data.product;
+          if (p.product_name) document.getElementById('productName').value = p.product_name;
+          if (p.mold) document.getElementById('mold').value = p.mold;
+          if (p.process) {
+            const select = document.getElementById('process');
+            if (![...select.options].some(opt => opt.value === p.process)) {
+              select.add(new Option(p.process, p.process));
+            }
+            select.value = p.process;
+          }
+          if (p.capacity) document.getElementById('capacity').value = p.capacity;
+          if (p.mold_change_time) document.getElementById('moldChangeTime').value = p.mold_change_time;
+          showToast('已自动匹配产品数据', 'success');
+        } else {
+          showToast('未找到该品号的产品数据，请手动填写或到产品数据页添加', 'info');
+        }
+      } catch(e) { showToast('自动匹配失败', 'danger'); }
+    }
+
+    function showOrderModal(id) {
+      document.getElementById('orderId').value = id || '';
+      document.getElementById('orderModalTitle').textContent = id ? '编辑订单' : '新增订单';
+      if(id) {
+        const o = allOrders.find(o=>o.id===id);
+        if(o) {
+          document.getElementById('orderNumber').value=o.order_number||''; document.getElementById('productCode').value=o.product_code||'';
+          document.getElementById('productName').value=o.product_name||''; document.getElementById('quantity').value=o.quantity;
+          document.getElementById('shippingQuantity').value=o.shipping_quantity||0; document.getElementById('shippingRequiredDate').value=o.shipping_required_date?o.shipping_required_date.slice(0,10):''; document.getElementById('deliveryDate').value=o.delivery_date?o.delivery_date.slice(0,10):''; document.getElementById('deliveryTime').value=o.delivery_time?o.delivery_time.slice(0,10):'';
+          document.getElementById('capacity').value=o.capacity||1000; document.getElementById('mold').value=o.mold||'';
+          document.getElementById('moldChangeTime').value=o.mold_change_time||30;
+          document.getElementById('priority').value=o.priority||0;
+          document.getElementById('materialReadyAt').value=o.material_ready_at ? new Date(o.material_ready_at).toISOString().slice(0,16) : '';
+          const select = document.getElementById('process');
+          if (o.process && ![...select.options].some(opt => opt.value === o.process)) {
+            select.add(new Option(o.process, o.process));
+          }
+          select.value = o.process || '';
+        }
+      } else {
+        ['orderNumber','productCode','productName','mold'].forEach(id=>document.getElementById(id).value='');
+        document.getElementById('quantity').value=1000; document.getElementById('shippingQuantity').value=0;
+        document.getElementById('shippingRequiredDate').value=''; document.getElementById('deliveryDate').value=''; document.getElementById('deliveryTime').value=''; document.getElementById('capacity').value=1000;
+        document.getElementById('moldChangeTime').value=30;
+        document.getElementById('priority').value=0;
+        document.getElementById('materialReadyAt').value='';
+        const select = document.getElementById('process');
+        if (select.options.length > 0) select.value = select.options[0].value;
+      }
+      new bootstrap.Modal(document.getElementById('orderModal')).show();
+    }
+
+    function editOrder(id) { showOrderModal(id); }
+
+    async function saveOrder() {
+      const id = document.getElementById('orderId').value;
+      const payload = {
+        order_number: document.getElementById('orderNumber').value.trim(),
+        product_code: document.getElementById('productCode').value.trim(),
+        product_name: document.getElementById('productName').value.trim(),
+        quantity: parseInt(document.getElementById('quantity').value) || 0,
+        shipping_quantity: parseInt(document.getElementById('shippingQuantity').value) || 0,
+        shipping_required_date: document.getElementById('shippingRequiredDate').value,
+        delivery_date: document.getElementById('deliveryDate').value,
+        delivery_time: document.getElementById('deliveryTime').value,
+        capacity: parseInt(document.getElementById('capacity').value) || 1000,
+        mold: document.getElementById('mold').value.trim(),
+        mold_change_time: parseInt(document.getElementById('moldChangeTime').value) || 30,
+        process: document.getElementById('process').value,
+        priority: Math.max(0, Math.min(100, parseInt(document.getElementById('priority').value) || 0)),
+        material_ready_at: document.getElementById('materialReadyAt').value || null,
+        remark: ''
+      };
+      if (!payload.order_number || !payload.product_code || !payload.product_name || !payload.mold) {
+        showToast('请填写所有必填项', 'warning');
+        return;
+      }
+      try {
+        const url = id ? `/api/orders/${id}` : '/api/orders';
+        const method = id ? 'PUT' : 'POST';
+        const resp = await fetch(url, {
+          method,
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        const data = await resp.json();
+        if (data.success) {
+          bootstrap.Modal.getInstance(document.getElementById('orderModal')).hide();
+          showToast(id ? '订单已更新' : '订单已创建', 'success');
+          loadOrders();
+        } else {
+          showToast(data.message || '保存失败', 'danger');
+        }
+      } catch (e) { showToast('网络错误', 'danger'); }
+    }
+
+    async function deleteOrder(id) {
+      if (!confirm('确认删除该订单？')) return;
+      try {
+        const resp = await fetch(`/api/orders/${id}`, { method: 'DELETE' });
+        const data = await resp.json();
+        if (data.success) { showToast('订单已删除', 'success'); loadOrders(); }
+        else showToast(data.message || '删除失败', 'danger');
+      } catch (e) { showToast('网络错误', 'danger'); }
+    }
+
+    function toggleAllOrders(el) {
+      document.querySelectorAll('.order-checkbox').forEach(cb => cb.checked = el.checked);
+    }
+
+    async function batchDeleteOrders() {
+      const selected = [...document.querySelectorAll('.order-checkbox:checked')].map(cb => parseInt(cb.value));
+      if (!selected.length) { showToast('请先选择要删除的订单', 'warning'); return; }
+      if (!confirm(`确认删除选中的 ${selected.length} 条订单？`)) return;
+      try {
+        const resp = await fetch('/api/orders/batch-delete', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ids: selected })
+        });
+        const data = await resp.json();
+        if (data.success) { showToast(`已删除 ${data.count} 条订单`, 'success'); loadOrders(); }
+        else showToast(data.message || '删除失败', 'danger');
+      } catch (e) { showToast('网络错误', 'danger'); }
+    }
+
+    function downloadTemplate() {
+      const ws = XLSX.utils.json_to_sheet([{
+        order_number: 'WO2024001', product_code: 'P-001', product_name: '示例产品',
+        quantity: 1000, shipping_quantity: 0, shipping_required_date: '2024-12-25', delivery_date: '2024-12-28', delivery_time: '2024-12-31',
+        capacity: 1000, mold: 'M001', mold_change_time: 30, process: '平压平1号', priority: 0, material_ready_at: ''
+      }]);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, '订单模板');
+      XLSX.writeFile(wb, 'order_template.xlsx');
+    }
+
+    async function importOrders(input) {
+      const file = input.files[0];
+      if (!file) return;
+      try {
+        showLoading();
+        const buffer = await file.arrayBuffer();
+        const wb = XLSX.read(buffer, { type: 'array', cellDates: true });
+        if (!wb.SheetNames.length) throw new Error('Excel 没有工作表');
+
+        const hasWorkOrderSheet = wb.SheetNames.some(n => /在制工单明细|生产工单明细/i.test(n));
+        const hasProductionSupportSheet = wb.SheetNames.some(n => /销货明细|库存明细|待检产品|每日急件满足进度|急件满足进度|模数跳距/i.test(n));
+        const isStandardProductionWorkbook = hasWorkOrderSheet && hasProductionSupportSheet;
+
+        if (isStandardProductionWorkbook) {
+          // 这是 PMC 每日标准表：不要再把“销货明细”第一页误当成工单。
+          const all = [];
+          for (const sheetName of wb.SheetNames) {
+            const ws = wb.Sheets[sheetName];
+            const matrix = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '', raw: true });
+            let headerRow = 0;
+            let bestScore = -1;
+            for (let r = 0; r < Math.min(matrix.length, 15); r++) {
+              const vals = matrix[r].map(v => String(v ?? '').trim());
+              const score = vals.filter(v => /品号|工单|销货数量|库存|待检|出货欠数|预计开工|是否齐料|刀模号|工艺/i.test(v)).length;
+              if (score > bestScore) { bestScore = score; headerRow = r; }
+            }
+            const rows = XLSX.utils.sheet_to_json(ws, { defval: '', raw: true, range: headerRow });
+            rows.forEach((r, idx) => { r.__sheet_name = sheetName; r.__row_index = headerRow + idx + 2; all.push(r); });
+          }
+          const resp = await apiJson('/api/workflow/import', {
+            method:'POST', headers:{'Content-Type':'application/json'},
+            body: JSON.stringify({ filename:file.name, rows:all, snapshot_date:new Date().toISOString().slice(0,10) })
+          });
+          hideLoading();
+          if (!resp.success) throw new Error(resp.message || '生产工作流导入失败');
+          showToast(resp.message || '生产计划Excel已自动识别', 'success');
+          currentSubTab='workflow';
+          currentWorkflowStage='shortage';
+          await loadWorkflowData(currentWorkflowStage);
+          return;
+        }
+
+        const sheet = wb.Sheets[wb.SheetNames[0]];
+        const rows = XLSX.utils.sheet_to_json(sheet, { defval: '', raw:true });
+        if (!rows.length) throw new Error('Excel 没有数据');
+
+        // 先交给后端做 V5 智能字段映射：支持中文/英文/自定义列名，并自动反查产品主数据。
+        const normalize = await apiJson('/api/orders/import-normalize', {
+          method:'POST', headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({ rows })
+        });
+        const orders = (normalize.orders || []).map(o => {
+          const x = { ...o };
+          delete x.__import_index;
+          delete x.__matched_product;
+          delete x.__missing;
+          return x;
+        });
+
+        if (normalize.unresolved_count) {
+          const sample = (normalize.unresolved || []).slice(0,8).map(x => `第${x.row}行${x.product_code || x.order_number || ''}缺${x.missing.join('、')}`).join('；');
+          hideLoading();
+          showToast(`有 ${normalize.unresolved_count} 条工单还无法自动匹配：${sample}`, 'warning');
+          return;
+        }
+
+        // 大批量分块导入，避免一次请求过大；每 500 条提交一次。
+        const chunkSize = 500;
+        let imported = 0;
+        for (let i=0; i<orders.length; i+=chunkSize) {
+          const chunk = orders.slice(i, i+chunkSize);
+          const result = await apiJson('/api/orders/batch-import', {
+            method:'POST', headers:{'Content-Type':'application/json'},
+            body: JSON.stringify({ orders: chunk })
+          });
+          imported += Number(result.count || chunk.length);
+        }
+
+        hideLoading();
+        showToast(`Excel 智能导入完成：${imported} 条。已自动匹配产品主数据 ${normalize.matched_product_count || 0} 条。`, 'success');
+        loadOrders();
+      } catch (err) {
+        hideLoading();
+        console.error('Excel 导入失败', err);
+        showToast(err.message || 'Excel 导入失败', 'danger');
+      } finally {
+        input.value = '';
+      }
+    }
+
+    // ========== 产品数据管理 ==========
+    function loadProducts() {
+      fetch('/api/machines').then(r=>r.json()).then(mRes => {
+        allMachines = mRes.machines || [];
+        return fetch('/api/product-data').then(r=>r.json()).then(d => {
+          allProducts = d.products || [];
+          let rows = allProducts.map(p => `<tr>
+            <td><input type="checkbox" class="product-checkbox" value="${p.id}"></td>
+            <td>${p.product_code}</td><td>${p.product_name||'-'}</td><td>${p.mold||'-'}</td><td>${p.process||'-'}</td>
+            <td>${p.capacity}</td><td>${p.mold_change_time}</td><td>${p.remark||'-'}</td>
+            <td>${currentUser.role!=='viewer'?`<button class="btn btn-sm btn-outline-primary me-1" onclick="editProduct(${p.id})">编辑</button><button class="btn btn-sm btn-outline-danger" onclick="deleteProduct(${p.id})">删除</button>`:'-'}</td>
+          </tr>`).join('');
+          document.getElementById('contentArea').innerHTML = `
+            <div class="card-custom">
+              <div class="card-header">
+                产品数据 
+                ${currentUser.role!=='viewer'?`
+                  <div>
+                    <button class="btn btn-sm btn-primary me-1" onclick="showProductModal()">新增产品</button>
+                    <label class="btn btn-sm btn-outline-info me-1"><input type="file" hidden accept=".xlsx,.xls" onchange="importProducts(this)">导入Excel</label>
+                    <button class="btn btn-sm btn-outline-warning me-1" onclick="batchUpdateProducts()">批量更改</button>
+                    <button class="btn btn-sm btn-outline-danger" onclick="batchDeleteProducts()">批量删除</button>
+                  </div>
+                `:''}
+              </div>
+              <div class="card-body">
+                <table class="table" id="productsTable">
+                  <thead class="table-light">
+                    <tr>
+                      <th><input type="checkbox" id="checkAllProducts" onchange="toggleAllProducts(this)"></th>
+                      <th>品号</th><th>品名</th><th>刀模</th><th>设备</th><th>产能</th><th>换模时间</th><th>备注</th><th>操作</th>
+                    </tr>
+                  </thead>
+                  <tbody>${rows}</tbody>
+                </table>
+              </div>
+            </div>
+
+            <!-- 批量更改模态框 -->
+            <div class="modal fade" id="batchProductModal">
+              <div class="modal-dialog"><div class="modal-content">
+                <div class="modal-header"><h5 class="modal-title">批量更改产品数据</h5><button class="btn-close" data-bs-dismiss="modal"></button></div>
+                <div class="modal-body">
+                  <div class="mb-3">
+                    <label class="form-label">选择要更改的字段</label>
+                    <select class="form-select" id="batchProductField">
+                      <option value="product_name">品名</option>
+                      <option value="mold">刀模</option>
+                      <option value="process">设备</option>
+                      <option value="capacity">产能</option>
+                      <option value="mold_change_time">换模时间</option>
+                      <option value="remark">备注</option>
+                    </select>
+                  </div>
+                  <div class="mb-3">
+                    <label class="form-label">新值</label>
+                    <input class="form-control" id="batchProductValue" placeholder="请输入新值">
+                  </div>
+                </div>
+                <div class="modal-footer">
+                  <button class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                  <button class="btn btn-primary" onclick="applyBatchUpdateProducts()">应用更改</button>
+                </div>
+              </div></div>
+            </div>`;
+          $('#productsTable').DataTable({destroy:true});
+          hideLoading();
+        });
+      }).catch(err => { hideLoading(); showToast('加载失败', 'danger'); });
+    }
+
+    function toggleAllProducts(el) {
+      document.querySelectorAll('.product-checkbox').forEach(cb => cb.checked = el.checked);
+    }
+
+    async function batchDeleteProducts() {
+      const selected = [...document.querySelectorAll('.product-checkbox:checked')].map(cb => parseInt(cb.value));
+      if (!selected.length) { showToast('请先选择要删除的产品', 'warning'); return; }
+      if (!confirm(`确认删除选中的 ${selected.length} 条产品数据？`)) return;
+      showLoading();
+      try {
+        const resp = await fetch('/api/product-data/batch-delete', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ids: selected })
+        });
+        const data = await resp.json();
+        if (data.success) {
+          hideLoading();
+          showToast(`成功删除 ${data.count} 条产品`, 'success');
+          loadProducts();
+        } else {
+          // 回退循环删除
+          for (const id of selected) {
+            await fetch(`/api/product-data/${id}`, { method: 'DELETE' });
+          }
+          hideLoading();
+          showToast(`成功删除 ${selected.length} 条产品`, 'success');
+          loadProducts();
+        }
+      } catch (e) {
+        hideLoading();
+        showToast('网络错误', 'danger');
+      }
+    }
+
+    function batchUpdateProducts() {
+      const selected = [...document.querySelectorAll('.product-checkbox:checked')].map(cb => parseInt(cb.value));
+      if (!selected.length) { showToast('请先选择要更改的产品', 'warning'); return; }
+      new bootstrap.Modal(document.getElementById('batchProductModal')).show();
+    }
+
+    async function applyBatchUpdateProducts() {
+      const selected = [...document.querySelectorAll('.product-checkbox:checked')].map(cb => parseInt(cb.value));
+      const field = document.getElementById('batchProductField').value;
+      const value = document.getElementById('batchProductValue').value.trim();
+      if (!value) { showToast('请输入新值', 'warning'); return; }
+      showLoading();
+      try {
+        for (const id of selected) {
+          const product = allProducts.find(p => p.id === id);
+          if (!product) continue;
+          const updated = { ...product, [field]: field === 'capacity' || field === 'mold_change_time' ? parseInt(value) || 0 : value };
+          await fetch(`/api/product-data/${id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(updated)
+          });
+        }
+        hideLoading();
+        bootstrap.Modal.getInstance(document.getElementById('batchProductModal')).hide();
+        showToast(`成功更新 ${selected.length} 条产品`, 'success');
+        loadProducts();
+      } catch (e) {
+        hideLoading();
+        showToast('网络错误', 'danger');
+      }
+    }
+
+    function showProductModal(id) {
+      document.getElementById('productId').value = id || '';
+      document.getElementById('productModalTitle').textContent = id ? '编辑产品' : '新增产品';
+      const select = document.getElementById('productDataProcess');
+      select.innerHTML = '';
+      const deviceNames = [...new Set(allMachines.map(m => m.name))];
+      deviceNames.forEach(n => select.add(new Option(n, n)));
+      if(id) {
+        const p = allProducts.find(x=>x.id===id);
+        if(p) {
+          document.getElementById('productDataCode').value=p.product_code; document.getElementById('productDataName').value=p.product_name||'';
+          document.getElementById('productDataMold').value=p.mold||'';
+          select.value = p.process || '';
+          document.getElementById('productDataCapacity').value=p.capacity; document.getElementById('productDataMoldChangeTime').value=p.mold_change_time;
+          document.getElementById('productDataRemark').value=p.remark||'';
+        }
+      } else {
+        document.getElementById('productDataCode').value=''; document.getElementById('productDataName').value='';
+        document.getElementById('productDataMold').value='';
+        select.value = select.options.length > 0 ? select.options[0].value : '';
+        document.getElementById('productDataCapacity').value=1000; document.getElementById('productDataMoldChangeTime').value=30;
+        document.getElementById('productDataRemark').value='';
+      }
+      new bootstrap.Modal(document.getElementById('productModal')).show();
+    }
+
+    function editProduct(id) { showProductModal(id); }
+
+    async function saveProduct() {
+      const id = document.getElementById('productId').value;
+      const payload = {
+        product_code: document.getElementById('productDataCode').value.trim(),
+        product_name: document.getElementById('productDataName').value.trim(),
+        mold: document.getElementById('productDataMold').value.trim(),
+        process: document.getElementById('productDataProcess').value,
+        capacity: parseInt(document.getElementById('productDataCapacity').value) || 1000,
+        mold_change_time: parseInt(document.getElementById('productDataMoldChangeTime').value) || 30,
+        remark: document.getElementById('productDataRemark').value.trim()
+      };
+      if (!payload.product_code) { showToast('品号不能为空', 'warning'); return; }
+      try {
+        const url = id ? `/api/product-data/${id}` : '/api/product-data';
+        const method = id ? 'PUT' : 'POST';
+        const resp = await fetch(url, {
+          method, headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        const data = await resp.json();
+        if (data.success) {
+          bootstrap.Modal.getInstance(document.getElementById('productModal')).hide();
+          showToast(id ? '产品已更新' : '产品已添加', 'success');
+          loadProducts();
+        } else showToast(data.message || '保存失败', 'danger');
+      } catch (e) { showToast('网络错误', 'danger'); }
+    }
+
+    async function deleteProduct(id) {
+      if (!confirm('确认删除该产品？')) return;
+      try {
+        const resp = await fetch(`/api/product-data/${id}`, { method: 'DELETE' });
+        const data = await resp.json();
+        if (data.success) { showToast('产品已删除', 'success'); loadProducts(); }
+        else showToast(data.message || '删除失败', 'danger');
+      } catch (e) { showToast('网络错误', 'danger'); }
+    }
+
+    // 产品数据Excel导入
+    async function importProducts(input) {
+      const file = input.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = async function(e) {
+        try {
+          const wb = XLSX.read(e.target.result, { type: 'array' });
+          const sheet = wb.Sheets[wb.SheetNames[0]];
+          const json = XLSX.utils.sheet_to_json(sheet, { defval: '' });
+          if (!json.length) { showToast('导入文件为空', 'warning'); return; }
+
+          const products = json.map(row => ({
+            product_code: row['品号'] || row['product_code'] || '',
+            product_name: row['品名'] || row['product_name'] || '',
+            mold: row['刀模'] || row['mold'] || '',
+            process: row['设备'] || row['process'] || row['设备名称'] || '',
+            capacity: parseInt(row['产能'] || row['capacity']) || 1000,
+            mold_change_time: parseInt(row['换模时间'] || row['mold_change_time']) || 30,
+            remark: row['备注'] || row['remark'] || ''
+          })).filter(p => p.product_code);
+
+          if (!products.length) { showToast('未识别到有效数据', 'warning'); return; }
+
+          showLoading();
+          const resp = await fetch('/api/product-data/batch-import', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ products })
+          });
+          const data = await resp.json();
+          hideLoading();
+          if (data.success) {
+            showToast(`成功导入 ${products.length} 条产品`, 'success');
+            loadProducts();
+          } else {
+            showToast(data.message || '导入失败', 'danger');
+          }
+        } catch (e) {
+          hideLoading();
+          showToast('文件解析失败', 'danger');
+        }
+      };
+      reader.readAsArrayBuffer(file);
+      input.value = '';
+    }
+
+    // ========== 设备管理 ==========
+    function loadMachines() {
+      fetch('/api/machines').then(r=>r.json()).then(d=>{
+        allMachines=d.machines||[];
+        let rows=allMachines.map(m=>`<tr>
+          <td>${escapeHtml(m.name)}</td>
+          <td>${currentUser.role==='admin' ? `<input type="text" class="form-control form-control-sm" value="${escapeHtml(m.machine_type)}" onchange="renameMachineType(${JSON.stringify(String(m.machine_type||''))}, this.value)">` : escapeHtml(m.machine_type)}</td>
+          <td>${m.status==='active'?'<span class="status-badge status-scheduled">启用</span>':'<span class="status-badge status-pending">停用</span>'}</td>
+          <td>${escapeHtml(m.remark||'-')}</td>
+          <td>${currentUser.role!=='viewer'?`<button class="btn btn-sm btn-outline-primary me-1" onclick="editMachine(${m.id})">编辑</button><button class="btn btn-sm btn-outline-danger" onclick="deleteMachine(${m.id})">删除</button>`:'-'}</td>
+        </tr>`).join('');
+        document.getElementById('contentArea').innerHTML=`
+          <div class="card-custom"><div class="card-header">设备管理 ${currentUser.role!=='viewer'?'<button class="btn btn-sm btn-primary" onclick="showMachineModal()">新增设备</button>':''}</div>
+          <div class="card-body"><table class="table" id="machinesTable"><thead class="table-light"><tr><th>设备名称</th><th>设备类型（管理员可直接修改）</th><th>状态</th><th>备注</th><th>操作</th></tr></thead><tbody>${rows}</tbody></table></div></div>
+          <div class="modal fade" id="machineModal"><div class="modal-dialog"><div class="modal-content">
+            <div class="modal-header"><h5 class="modal-title" id="machineModalTitle">新增设备</h5><button class="btn-close" data-bs-dismiss="modal"></button></div>
+            <div class="modal-body"><input type="hidden" id="machineId">
+              <div class="mb-3"><label class="form-label">设备名称 *</label><input class="form-control" id="machineName"></div>
+              <div class="mb-3"><label class="form-label">设备类型 *</label><select class="form-select" id="machineType">${["平压平模切机","圆压圆模切机","激光模切机","高速模切机","精密模切机","分条机","贴合机","裁切机","多功能模切机"].map(t=>`<option>${t}</option>`).join('')}</select></div>
+              <div class="mb-3"><label class="form-label">状态</label><select class="form-select" id="machineStatus"><option value="active">启用</option><option value="inactive">停用</option></select></div>
+              <div class="mb-3"><label class="form-label">备注</label><textarea class="form-control" id="machineRemark" rows="2"></textarea></div>
+            </div>
+            <div class="modal-footer"><button class="btn btn-secondary" data-bs-dismiss="modal">取消</button><button class="btn btn-primary" onclick="saveMachine()">保存</button></div>
+          </div></div></div>`;
+        $('#machinesTable').DataTable({destroy:true});
+        hideLoading();
+      });
+    }
+
+    async function renameMachineType(oldType, newType) {
+      if(!newType || newType === oldType) return;
+      if(!confirm(`确定将设备类型“${oldType}”改为“${newType}”吗？相关订单的工艺也会同步更新。`)) return;
+      try {
+        const resp = await fetch('/api/machines/rename-type', {
+          method:'PUT', headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({ old_type: oldType, new_type: newType })
+        });
+        const data = await resp.json();
+        if(data.success) { showToast('设备类型已更新', 'success'); loadMachines(); }
+        else showToast(data.message||'更新失败', 'danger');
+      } catch(e) { showToast('网络错误', 'danger'); }
+    }
+
+    function showMachineModal(id) {
+      document.getElementById('machineId').value = id || '';
+      document.getElementById('machineModalTitle').textContent = id ? '编辑设备' : '新增设备';
+      if (id) {
+        const m = allMachines.find(m => m.id === id);
+        if (m) {
+          document.getElementById('machineName').value = m.name || '';
+          document.getElementById('machineType').value = m.machine_type || '';
+          document.getElementById('machineStatus').value = m.status || 'active';
+          document.getElementById('machineRemark').value = m.remark || '';
+        }
+      } else {
+        document.getElementById('machineName').value = '';
+        document.getElementById('machineType').value = document.getElementById('machineType').options[0].value;
+        document.getElementById('machineStatus').value = 'active';
+        document.getElementById('machineRemark').value = '';
+      }
+      new bootstrap.Modal(document.getElementById('machineModal')).show();
+    }
+    function editMachine(id){ showMachineModal(id); }
+
+    async function saveMachine() {
+      const id = document.getElementById('machineId').value;
+      const payload = {
+        name: document.getElementById('machineName').value.trim(),
+        machine_type: document.getElementById('machineType').value,
+        status: document.getElementById('machineStatus').value,
+        remark: document.getElementById('machineRemark').value.trim()
+      };
+      if (!payload.name || !payload.machine_type) { showToast('请填写设备名称和类型', 'warning'); return; }
+      try {
+        const url = id ? `/api/machines/${id}` : '/api/machines';
+        const method = id ? 'PUT' : 'POST';
+        const resp = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+        const data = await resp.json();
+        if (data.success) {
+          bootstrap.Modal.getInstance(document.getElementById('machineModal')).hide();
+          showToast(id ? '设备已更新' : '设备已添加', 'success');
+          loadMachines();
+        } else showToast(data.message || '保存失败', 'danger');
+      } catch (e) { showToast('网络错误', 'danger'); }
+    }
+
+    async function deleteMachine(id) {
+      if (!confirm('确认删除该设备？')) return;
+      try {
+        const resp = await fetch(`/api/machines/${id}`, { method: 'DELETE' });
+        const data = await resp.json();
+        if (data.success) { showToast('设备已删除', 'success'); loadMachines(); }
+        else showToast(data.message || '删除失败', 'danger');
+      } catch (e) { showToast('网络错误', 'danger'); }
+    }
+
+    // ========== 排产看板 ==========
+    function loadSchedule() {
+      Promise.all([
+        fetch('/api/schedules').then(r => r.json()),
+        fetch('/api/machines').then(r => r.json()),
+        fetch('/api/orders').then(r => r.json()),
+        fetch('/api/settings').then(r => r.json())
+      ]).then(([s, m, o, st]) => {
+        allSchedules = s.schedules || [];
+        allMachines = m.machines || [];
+        allOrders = o.orders || [];
+        workSettings = st.settings || {};
+        currentSubTab = currentSubTab || 'workflow';
+        if(!currentWorkflowStage) currentWorkflowStage='shortage';
+        renderScheduleView();
+        loadWorkflowData(currentWorkflowStage);
+        hideLoading();
+      }).catch(err => { hideLoading(); showToast('加载排程数据失败', 'danger'); });
+    }
+
+    function switchSubTab(sub) {
+      currentSubTab = sub;
+      if(sub==='gantt'||sub==='list') currentWorkflowStage=null;
+      updateScheduleSidebar();
+      renderScheduleView();
+    }
 
     function workflowStageLabel(stage){return ({shortage:'欠料',available_to_issue:'有料待发',waiting_schedule:'车间待排',in_process:'车间在制'})[stage]||stage;}
     async function loadWorkflowData(stage='shortage'){
@@ -180,36 +1188,575 @@
           Promise.all(stageKeys.map(s=>fetch(`/api/workflow/board?stage=${encodeURIComponent(s)}`).then(r=>r.json()))),
           fetch('/api/workflow/kpi').then(r=>r.json())
         ]);
-        const byStage={};
-        stageKeys.forEach((s,i)=>{byStage[s]=boards[i]||{};});
-        workflowStageCounts={};
-        stageKeys.forEach(s=>{workflowStageCounts[s]=Number(byStage[s]?.count||0); const el=document.getElementById(`workflow-count-${s}`); if(el)el.textContent=String(workflowStageCounts[s]||0);});
+        const byStage={}; stageKeys.forEach((s,i)=>{byStage[s]=boards[i]||{};});
+        workflowStageCounts={}; stageKeys.forEach(s=>{workflowStageCounts[s]=Number(byStage[s]?.count||0); const el=document.getElementById(`workflow-count-${s}`); if(el)el.textContent=String(workflowStageCounts[s]||0);});
         workflowBoardData=byStage[stage]||{rows:[],count:0}; workflowKpiData=k;
-        if(stageKeys.includes(currentWorkflowStage))renderWorkflowBoard(stage);
-      }catch(e){console.error(e);if(['shortage','available_to_issue','waiting_schedule','in_process'].includes(currentWorkflowStage))showToast('四板块数据加载失败','danger');}
+        if(stageKeys.includes(currentWorkflowStage)) renderWorkflowBoard(stage);
+      }catch(e){ console.error(e); if(['shortage','available_to_issue','waiting_schedule','in_process'].includes(currentWorkflowStage)) showToast('四板块数据加载失败','danger'); }
     }
-    function switchWorkflowStage(stage){currentWorkflowStage=stage;currentSubTab='workflow';updateScheduleSidebar();loadWorkflowData(stage);}
-    function workflowTabsHtml(){const tabs=[['gantt','甘特图'],['list','列表视图']];return `<div class="workflow-tabs">${tabs.map(([k,t])=>`<div class="workflow-tab ${currentSubTab===k?'active':''}" onclick="switchSubTab('${k}')">${t}</div>`).join('')}</div>`;}
+    function switchWorkflowStage(stage){ currentWorkflowStage=stage; currentSubTab='workflow'; updateScheduleSidebar(); loadWorkflowData(stage); }
+    function workflowTabsHtml(){
+      const tabs=[['gantt','甘特图'],['list','列表视图']];
+      return `<div class="workflow-tabs">${tabs.map(([k,t])=>`<div class="workflow-tab ${currentSubTab===k?'active':''}" onclick="switchSubTab('${k}')">${t}</div>`).join('')}</div>`;
+    }
     function renderWorkflowBoard(stage){
-      const c=document.getElementById('contentArea'); const b=workflowBoardData||{}; const kpi=(workflowKpiData?.kpi||[]).reduce((m,x)=>(m[x.stage]=x,m),{}); const stageCount=Number(workflowStageCounts[stage]||b.count||0);
+      const c=document.getElementById('contentArea');const b=workflowBoardData||{};const kpi=(workflowKpiData?.kpi||[]).reduce((m,x)=>(m[x.stage]=x,m),{});const stageCount=Number(workflowStageCounts[stage]||b.count||0);
       const cards=[['shortage','欠料'],['available_to_issue','有料待发'],['waiting_schedule','车间待排'],['in_process','车间在制']].map(([key,label])=>{const x=kpi[key]||{};return `<div class="box"><div class="workflow-muted">${label}·当前数量 <strong>${Number(workflowStageCounts[key]||0)}</strong></div><div class="rate">${Number.isFinite(Number(x.rate))?Number(x.rate).toFixed(1):'100.0'}%</div><div class="workflow-muted">实际 ${x.actual_count||0} / 应完成 ${x.expected_count||0} ${Number(x.alert_count||0)>0?`· <span class="text-danger">预警 ${x.alert_count}</span>`:''}</div></div>`;}).join('');
       const rows=Array.isArray(b.rows)?b.rows:[];
       const productionValues=[...new Set(rows.map(r=>String(r.order_status==='scheduled'?'已排待制':(r.workflow_production_progress||'')).trim()).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'zh'));
       const materialValues=[...new Set(rows.map(r=>String(r.workflow_material_status||'').trim()).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'zh'));
       const tableRows=rows.map(r=>{const production=String(r.order_status==='scheduled'?'已排待制':(r.workflow_production_progress||'-'));const material=String(r.workflow_material_status||'-');const shortage=String(r.workflow_shortage_detail||'-');const ship=Number(r.shipping_quantity||0);return `<tr><td data-order="${escapeHtml(r.order_number||'')}">${escapeHtml(r.order_number||'-')}</td><td>${escapeHtml(r.product_code||'-')}</td><td>${escapeHtml(r.product_name||'-')}</td><td data-order="${Number(r.quantity||0)}">${Number(r.quantity||0)}</td><td data-order="${ship}">${ship}</td><td data-order="${escapeHtml(r.shipping_required_date||r.delivery_date||'')}">${formatWorkflowDate(r.shipping_required_date||r.delivery_date)}</td><td data-order="${escapeHtml(r.workflow_expected_date||'')}">${formatWorkflowDate(r.workflow_expected_date)}</td><td>${escapeHtml(production)}</td><td>${escapeHtml(material)}</td><td>${escapeHtml(shortage)}</td></tr>`;}).join('');
       const alerts=(b.alerts||[]).map(a=>`<div class="workflow-alert"><strong>⚠ ${escapeHtml(a.order_number||a.product_code||'')}</strong>：${escapeHtml(a.reason||'')}</div>`).join('');
-      const importBtn=currentUser?.role!=='viewer'?`<label class="btn btn-sm btn-primary"><input type="file" hidden accept=".xlsx,.xls,.csv" onchange="importWorkflowExcel(this)">导入Excel并自动识别</label>`:'';
-      const latest=b.latest_import_date?`<span class="workflow-muted ms-2">当前批次：${escapeHtml(b.latest_import_date)}</span>`:''; const stageTitle=workflowStageLabel(stage);
-      c.innerHTML=`<div class="card-custom"><div class="card-header d-flex justify-content-between align-items-center"><div class="d-flex align-items-center gap-2"><span class="fw-semibold">${escapeHtml(stageTitle)}</span>${workflowTabsHtml()}${latest}</div><div>${importBtn} ${currentUser?.role!=='viewer'?`<button class="btn btn-sm btn-outline-success ms-1" onclick="runAutoSchedule()">对待排工单排程</button>`:''}</div></div><div class="card-body"><div class="workflow-kpi">${cards}</div><div class="workflow-board-toolbar"><input id="workflow-board-search" class="form-control form-control-sm" placeholder="查找工单、品号、品名、生产状态、物料状态、欠料明细"><select id="workflow-production-filter" class="form-select form-select-sm"><option value="">全部生产状态</option>${productionValues.map(v=>`<option value="${escapeHtml(v)}">${escapeHtml(v)}</option>`).join('')}</select><select id="workflow-material-filter" class="form-select form-select-sm"><option value="">全部物料状态</option>${materialValues.map(v=>`<option value="${escapeHtml(v)}">${escapeHtml(v)}</option>`).join('')}</select></div>${alerts?`<div class="workflow-alerts">${alerts}</div>`:''}<div class="table-responsive"><table id="workflowBoardTable" class="table table-sm table-hover workflow-board-table"><thead><tr><th>工单</th><th>品号</th><th>品名</th><th>数量</th><th>出货数量</th><th>要求出货/交货日期</th><th>板块预计日期</th><th>生产状态</th><th>物料状态</th><th>欠料明细</th></tr></thead><tbody>${tableRows||'<tr><td colspan="10" class="text-muted">当前批次该板块暂无数据</td></tr>'}</tbody></table></div></div></div>`;
-      const table=$('#workflowBoardTable').DataTable({destroy:true,pageLength:15,order:[[5,'asc'],[0,'asc']]}); $('#workflow-board-search').on('input',function(){table.search(this.value).draw();}); $('#workflow-production-filter').on('change',function(){table.column(7).search(this.value).draw();}); $('#workflow-material-filter').on('change',function(){table.column(8).search(this.value).draw();});
+      const importBtn=currentUser.role!=='viewer'?`<label class="btn btn-sm btn-primary"><input type="file" hidden accept=".xlsx,.xls,.csv" onchange="importWorkflowExcel(this)">导入Excel并自动识别</label>`:'';const latest=b.latest_import_date?`<span class="workflow-muted ms-2">当前批次：${escapeHtml(b.latest_import_date)}</span>`:'';const stageTitle=workflowStageLabel(stage);
+      c.innerHTML=`<div class="card-custom"><div class="card-header d-flex justify-content-between align-items-center"><div class="d-flex align-items-center gap-2"><span class="fw-semibold">${escapeHtml(stageTitle)}</span>${workflowTabsHtml()}${latest}</div><div>${importBtn} ${currentUser.role!=='viewer'?`<button class="btn btn-sm btn-outline-success ms-1" onclick="runAutoSchedule()">对待排工单排程</button>`:''}</div></div><div class="card-body"><div class="workflow-kpi">${cards}</div><div class="workflow-board-toolbar"><input id="workflow-board-search" class="form-control form-control-sm" placeholder="查找工单、品号、品名、生产状态、物料状态、欠料明细"><select id="workflow-production-filter" class="form-select form-select-sm"><option value="">全部生产状态</option>${productionValues.map(v=>`<option value="${escapeHtml(v)}">${escapeHtml(v)}</option>`).join('')}</select><select id="workflow-material-filter" class="form-select form-select-sm"><option value="">全部物料状态</option>${materialValues.map(v=>`<option value="${escapeHtml(v)}">${escapeHtml(v)}</option>`).join('')}</select></div>${alerts?`<div class="workflow-alerts">${alerts}</div>`:''}<div class="table-responsive"><table id="workflowBoardTable" class="table table-sm table-hover workflow-board-table"><thead><tr><th>工单</th><th>品号</th><th>品名</th><th>数量</th><th>出货数量</th><th>要求出货/交货日期</th><th>板块预计日期</th><th>生产状态</th><th>物料状态</th><th>欠料明细</th></tr></thead><tbody>${tableRows||'<tr><td colspan="10" class="text-muted">当前批次该板块暂无数据</td></tr>'}</tbody></table></div></div></div>`;
+      const table=$('#workflowBoardTable').DataTable({destroy:true,pageLength:15,order:[[5,'asc'],[0,'asc']]});$('#workflow-board-search').on('input',function(){table.search(this.value).draw();});$('#workflow-production-filter').on('change',function(){table.column(7).search(this.value).draw();});$('#workflow-material-filter').on('change',function(){table.column(8).search(this.value).draw();});
     }
-    function renderScheduleView(){if(['shortage','available_to_issue','waiting_schedule','in_process'].includes(currentWorkflowStage)&&currentSubTab==='workflow')renderWorkflowBoard(currentWorkflowStage);else if(currentSubTab==='gantt')renderGantt();else renderScheduleList();}
-
-    // 下面保留原有业务页面函数与原生产工单导入逻辑
     async function importWorkflowExcel(input){
       const file=input.files?.[0]; if(!file)return;
-      try{showLoading();const data=await file.arrayBuffer();const wb=XLSX.read(data,{type:'array',cellDates:true});let all=[];for(const sheetName of wb.SheetNames){const ws=wb.Sheets[sheetName];const matrix=XLSX.utils.sheet_to_json(ws,{header:1,defval:'',raw:true});let headerRow=0,bestScore=-1;for(let r=0;r<Math.min(matrix.length,15);r++){const vals=matrix[r].map(v=>String(v??'').trim());const score=vals.filter(v=>/品号|工单|销货数量|库存|待检|出货欠数|预计开工|是否齐料|生产进度|欠料明细|要求出货时间|刀模号|工艺/i.test(v)).length;if(score>bestScore){bestScore=score;headerRow=r;}}const rows=XLSX.utils.sheet_to_json(ws,{defval:'',raw:true,range:headerRow});rows.forEach((r,idx)=>{r.__sheet_name=sheetName;r.__row_index=headerRow+idx+2;all.push(r);});}if(!all.length)throw new Error('Excel没有数据');const resp=await apiJson('/api/workflow/import',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({filename:file.name,rows:all,snapshot_date:new Date().toISOString().slice(0,10)})});if(!resp.success)throw new Error(resp.message||'导入失败');showToast(resp.message||'四板块Excel导入成功','success');workflowBoardData=null;await loadWorkflowData(currentWorkflowStage||'shortage');showToast(`当前批次：欠料 ${resp.stages?.shortage||0}，有料待发 ${resp.stages?.available_to_issue||0}，车间待排 ${resp.stages?.waiting_schedule||0}，车间在制 ${resp.stages?.in_process||0}`,'info');}catch(e){console.error(e);showToast(e.message||'Excel导入失败','danger');}finally{hideLoading();input.value='';}
+      try{
+        showLoading();
+        const data=await file.arrayBuffer(); const wb=XLSX.read(data,{type:'array',cellDates:true}); let all=[];
+        for(const sheetName of wb.SheetNames){
+          const ws=wb.Sheets[sheetName];
+          const matrix=XLSX.utils.sheet_to_json(ws,{header:1,defval:'',raw:true});
+          let headerRow=0,bestScore=-1;
+          for(let r=0;r<Math.min(matrix.length,15);r++){
+            const vals=matrix[r].map(v=>String(v??'').trim());
+            const score=vals.filter(v=>/品号|工单|销货数量|库存|待检|出货欠数|预计开工|是否齐料|生产进度|欠料明细|要求出货时间|刀模号|工艺/i.test(v)).length;
+            if(score>bestScore){bestScore=score;headerRow=r;}
+          }
+          const rows=XLSX.utils.sheet_to_json(ws,{defval:'',raw:true,range:headerRow});
+          rows.forEach((r,idx)=>{r.__sheet_name=sheetName;r.__row_index=headerRow+idx+2;all.push(r);});
+        }
+        if(!all.length) throw new Error('Excel没有数据');
+        const resp=await apiJson('/api/workflow/import',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({filename:file.name,rows:all,snapshot_date:new Date().toISOString().slice(0,10)})});
+        if(!resp.success) throw new Error(resp.message||'导入失败');
+        showToast(resp.message||'四板块Excel导入成功','success');
+        workflowBoardData=null;
+        await loadWorkflowData(currentWorkflowStage||'shortage');
+        showToast(`当前批次：欠料 ${resp.stages?.shortage||0}，有料待发 ${resp.stages?.available_to_issue||0}，车间待排 ${resp.stages?.waiting_schedule||0}，车间在制 ${resp.stages?.in_process||0}`, 'info');
+      }catch(e){console.error(e);showToast(e.message||'Excel导入失败','danger');}finally{hideLoading(); input.value='';}
     }
-  </script>
+    function renderScheduleView() {
+      if (['shortage','available_to_issue','waiting_schedule','in_process'].includes(currentWorkflowStage) && currentSubTab === 'workflow') renderWorkflowBoard(currentWorkflowStage);
+      else if (currentSubTab === 'gantt') { currentWorkflowStage=null; renderGantt(); }
+      else { currentWorkflowStage=null; renderScheduleDetail(); }
+    }
+
+    function formatTime(isoStr) {
+      if (!isoStr) return '-';
+      const d = new Date(isoStr);
+      return d.toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
+    }
+
+    function formatWorkflowDate(value) {
+      if (!value) return '-';
+      const raw=String(value);
+      const m=raw.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+      if(m) return `${m[1]}-${String(m[2]).padStart(2,'0')}-${String(m[3]).padStart(2,'0')}`;
+      return raw.length>=10 ? raw.slice(0,10) : raw;
+    }
+
+    function toLocalInputValue(isoStr) {
+      if (!isoStr) return '';
+      const d = new Date(isoStr);
+      const offset = d.getTimezoneOffset() * 60000;
+      const local = new Date(d.getTime() - offset);
+      return local.toISOString().slice(0, 16);
+    }
+
+    function renderGantt() {
+      const container = document.getElementById('contentArea');
+      if (!allSchedules.length) {
+        container.innerHTML = `<div class="card-custom"><div class="card-header">排产甘特图</div><div class="card-body text-center py-5">暂无排程数据，请先执行自动排程</div></div>`;
+        return;
+      }
+
+      let minTime = null, maxTime = null;
+      allSchedules.forEach(s => {
+        const start = new Date(s.mold_change_start || s.start_time);
+        const end = new Date(s.end_time || s.start_time);
+        if (!minTime || start < minTime) minTime = start;
+        if (!maxTime || end > maxTime) maxTime = end;
+      });
+      if (!minTime) minTime = new Date();
+      if (!maxTime) maxTime = new Date(minTime.getTime() + 86400000);
+
+      const axisStart = new Date(minTime);
+      axisStart.setHours(0, 0, 0, 0);
+      const axisEnd = new Date(maxTime);
+      axisEnd.setHours(23, 59, 59, 999);
+      const totalMinutes = (axisEnd - axisStart) / 60000;
+      const pxPerMinute = ganttDayWidth / (24 * 60);
+
+      let tickIntervalMinutes;
+      if (pxPerMinute >= 2) tickIntervalMinutes = 60;
+      else if (pxPerMinute >= 1) tickIntervalMinutes = 120;
+      else if (pxPerMinute >= 0.5) tickIntervalMinutes = 240;
+      else tickIntervalMinutes = 480;
+
+      let ticksHtml = '';
+      const tickCount = Math.ceil(totalMinutes / tickIntervalMinutes);
+      for (let i = 0; i <= tickCount; i++) {
+        const minutesFromStart = i * tickIntervalMinutes;
+        const left = minutesFromStart * pxPerMinute;
+        const time = new Date(axisStart.getTime() + minutesFromStart * 60000);
+        const timeStr = `${time.getMonth()+1}/${time.getDate()} ${time.getHours()}:00`;
+        ticksHtml += `<div class="gantt-time-tick" style="left:${left}px;">${timeStr}</div>`;
+      }
+
+      const settings = workSettings;
+      let breakZonesHtml = '';
+      for (let d = 0; d <= Math.ceil(totalMinutes / (24*60)); d++) {
+        const curDay = new Date(axisStart);
+        curDay.setDate(curDay.getDate() + d);
+        curDay.setHours(0,0,0,0);
+        if (settings) {
+          const lunchStart = new Date(curDay);
+          const [lh, lm] = settings.break_lunch_start.split(':').map(Number);
+          lunchStart.setHours(lh, lm, 0, 0);
+          const lunchEnd = new Date(curDay);
+          const [lh2, lm2] = settings.break_lunch_end.split(':').map(Number);
+          lunchEnd.setHours(lh2, lm2, 0, 0);
+          const dinnerStart = new Date(curDay);
+          const [dh, dm] = settings.break_dinner_start.split(':').map(Number);
+          dinnerStart.setHours(dh, dm, 0, 0);
+          const dinnerEnd = new Date(curDay);
+          const [dh2, dm2] = settings.break_dinner_end.split(':').map(Number);
+          dinnerEnd.setHours(dh2, dm2, 0, 0);
+          const leftLunch = (lunchStart - axisStart) / 60000 * pxPerMinute;
+          const widthLunch = (lunchEnd - lunchStart) / 60000 * pxPerMinute;
+          const leftDinner = (dinnerStart - axisStart) / 60000 * pxPerMinute;
+          const widthDinner = (dinnerEnd - dinnerStart) / 60000 * pxPerMinute;
+          breakZonesHtml += `<div class="break-zone" style="left:${leftLunch}px;width:${widthLunch}px;"></div>`;
+          breakZonesHtml += `<div class="break-zone" style="left:${leftDinner}px;width:${widthDinner}px;"></div>`;
+        }
+      }
+
+      const machines = allMachines.filter(m => m.status === 'active');
+      let rowsHtml = '';
+      machines.forEach(m => {
+        const machineSchedules = allSchedules.filter(s => s.machine_id === m.id);
+        rowsHtml += `<div class="gantt-row">
+          <div class="gantt-label">${m.name}</div>
+          <div class="gantt-track">`;
+        machineSchedules.forEach(s => {
+          const moldStart = new Date(s.mold_change_start);
+          const moldEnd = new Date(s.mold_change_end);
+          const prodStart = new Date(s.start_time);
+          const prodEnd = new Date(s.end_time);
+          const leftMold = (moldStart - axisStart) / 60000 * pxPerMinute;
+          const widthMold = (moldEnd - moldStart) / 60000 * pxPerMinute;
+          const leftProd = (prodStart - axisStart) / 60000 * pxPerMinute;
+          const widthProd = (prodEnd - prodStart) / 60000 * pxPerMinute;
+          const order = allOrders.find(o => o.id === s.order_id);
+          const label = order ? `${order.order_number}` : s.id;
+          rowsHtml += `
+            <div class="gantt-bar mold" style="left:${leftMold}px;width:${widthMold}px;" title="换模 ${label}">换模</div>
+            <div class="gantt-bar production ${s.status}" style="left:${leftProd}px;width:${widthProd}px;" 
+                 onclick="openCompleteModal(${s.id})" title="${label} 生产">${label}</div>`;
+        });
+        rowsHtml += `</div></div>`;
+      });
+
+      container.innerHTML = `
+        <div class="card-custom">
+          <div class="card-header">${workflowTabsHtml()}
+            <div class="sub-tab ${currentSubTab==='gantt'?'active':''}" onclick="switchSubTab('gantt')">甘特图</div>
+            <div class="sub-tab ${currentSubTab==='list'?'active':''}" onclick="switchSubTab('list')">列表视图</div>
+            <div class="zoom-container">
+              <button class="btn btn-sm btn-outline-secondary" onclick="zoomGantt(-10)" title="缩小">-</button>
+              <button class="btn btn-sm btn-outline-secondary" onclick="resetZoom()" title="重置缩放">重置</button>
+              <button class="btn btn-sm btn-outline-secondary" onclick="zoomGantt(10)" title="放大">+</button>
+            </div>
+          </div>
+          <div class="card-body gantt-container">
+            <div class="gantt-time-axis" style="position:relative;">${ticksHtml}${breakZonesHtml}</div>
+            ${rowsHtml}
+          </div>
+          <div class="card-footer d-flex justify-content-between">
+            <span class="small text-muted">点击生产条可完工确认；已完工任务可“调整完工”，修改实际完工时间后，后续未开工任务会按新时间自动重排</span>
+            <div>
+              ${currentUser.role !== 'viewer' ? `
+                <button class="btn btn-sm btn-outline-success" onclick="runAutoSchedule()">智能排程</button>
+                <button class="btn btn-sm btn-outline-danger" onclick="clearSchedules()">清空排程</button>
+                <button class="btn btn-sm btn-outline-primary" onclick="exportSchedules()">导出</button>
+                <button class="btn btn-sm btn-outline-secondary" onclick="showScheduleChanges()">变更历史</button>
+              ` : ''}
+            </div>
+          </div>
+        </div>`;
+    }
+
+    function zoomGantt(change) {
+      ganttDayWidth = Math.max(20, Math.min(2000, ganttDayWidth + change));
+      renderGantt();
+    }
+
+    function resetZoom() {
+      ganttDayWidth = 100;
+      renderGantt();
+    }
+
+    function renderScheduleDetail() {
+      const container = document.getElementById('contentArea');
+      let rows = '';
+      allSchedules.forEach(s => {
+        const order = allOrders.find(o => o.id === s.order_id);
+        const machine = allMachines.find(m => m.id === s.machine_id);
+        const orderNum = order ? order.order_number : '-';
+        const productCode = order ? order.product_code : '-';
+        const productName = order ? order.product_name : '-';
+        const machineName = machine ? machine.name : '-';
+        const statusBadge = s.status === 'completed' ? '<span class="status-badge status-completed">已完成</span>' : (s.status === 'running' ? '<span class="status-badge" style="background:#f8d7da;color:#842029;">生产中</span>' : '<span class="status-badge status-scheduled">已排产</span>');
+        const completedTime = s.completed_at ? formatTime(s.completed_at) : '-';
+        rows += `<tr>
+          <td>${orderNum}</td>
+          <td>${productCode}</td>
+          <td>${productName}</td>
+          <td>${machineName}</td>
+          <td>${formatTime(s.mold_change_start)}</td>
+          <td>${formatTime(s.mold_change_end)}</td>
+          <td>${formatTime(s.start_time)}</td>
+          <td>${formatTime(s.end_time)}</td>
+          <td>${s.planned_quantity}</td>
+          <td>${statusBadge}</td>
+          <td>${completedTime}</td>
+          <td>${currentUser.role !== 'viewer' ? `${s.status === 'scheduled' ? `<button class="btn btn-sm btn-outline-primary me-1" onclick="startSchedule(${s.id})">开工</button>` : ''}${s.status !== 'completed' ? `<button class="btn btn-sm btn-outline-success" onclick="openCompleteModal(${s.id})">完工</button>` : `<button class="btn btn-sm btn-outline-warning" onclick="openCompleteModal(${s.id})">调整完工</button>`}` : '-'}</td>
+        </tr>`;
+      });
+      container.innerHTML = `
+        <div class="card-custom">
+          <div class="card-header">${workflowTabsHtml()}
+            <div class="sub-tab ${currentSubTab==='gantt'?'active':''}" onclick="switchSubTab('gantt')">甘特图</div>
+            <div class="sub-tab ${currentSubTab==='list'?'active':''}" onclick="switchSubTab('list')">列表视图</div>
+          </div>
+          <div class="card-body table-responsive">
+            <table class="table table-hover" id="scheduleTable">
+              <thead class="table-light"><tr><th>工单编号</th><th>品号</th><th>品名</th><th>设备</th><th>换模开始</th><th>换模结束</th><th>生产开始</th><th>生产结束</th><th>计划数量</th><th>状态</th><th>完工时间</th><th>操作</th></tr></thead>
+              <tbody>${rows}</tbody>
+            </table>
+          </div>
+          <div class="card-footer d-flex justify-content-end">
+            ${currentUser.role !== 'viewer' ? `
+              <button class="btn btn-sm btn-outline-success me-2" onclick="runAutoSchedule()">V5智能排程</button>
+              <button class="btn btn-sm btn-outline-danger me-2" onclick="clearSchedules()">清空排程</button>
+              <button class="btn btn-sm btn-outline-primary" onclick="exportSchedules()">导出</button>
+                <button class="btn btn-sm btn-outline-secondary" onclick="showScheduleChanges()">变更历史</button>
+            ` : ''}
+          </div>
+        </div>`;
+      $('#scheduleTable').DataTable({destroy: true, pageLength: 15});
+    }
+
+    function openCompleteModal(scheduleId) {
+      const schedule = allSchedules.find(s => s.id === scheduleId);
+      if (!schedule) return;
+      completeEditMode = schedule.status === 'completed';
+      document.getElementById('completeScheduleId').value = schedule.id;
+      document.getElementById('completeMoldStart').value = toLocalInputValue(schedule.mold_change_start);
+      document.getElementById('completeMoldEnd').value = toLocalInputValue(schedule.mold_change_end);
+      document.getElementById('completeStart').value = toLocalInputValue(schedule.start_time);
+      document.getElementById('completeEnd').value = toLocalInputValue(schedule.end_time);
+      document.getElementById('completeQuantity').value = schedule.planned_quantity;
+      document.getElementById('completeModalTitle').textContent = completeEditMode ? '调整已完工记录' : '完工确认';
+      document.getElementById('btnConfirmComplete').textContent = completeEditMode ? '保存调整并重排后续' : '确认完工';
+      new bootstrap.Modal(document.getElementById('completeModal')).show();
+    }
+
+    async function startSchedule(id) {
+      if (!confirm('确认将该任务标记为开工？开工后智能排程不会覆盖该任务。')) return;
+      showLoading();
+      try {
+        const data = await apiJson(`/api/schedules/${id}/start`, { method:'POST' });
+        hideLoading();
+        showToast(data.message || '已开工', 'success');
+        loadSchedule();
+      } catch (e) {
+        hideLoading();
+        showToast(e.message || '开工失败', 'danger');
+      }
+    }
+
+    async function confirmCompleteSchedule() {
+      const id = document.getElementById('completeScheduleId').value;
+      const payload = {
+        mold_change_start: document.getElementById('completeMoldStart').value,
+        mold_change_end: document.getElementById('completeMoldEnd').value,
+        start_time: document.getElementById('completeStart').value,
+        end_time: document.getElementById('completeEnd').value,
+        planned_quantity: document.getElementById('completeQuantity').value
+      };
+      showLoading();
+      try {
+        const method = completeEditMode ? 'PUT' : 'POST';
+        const data = await apiJson(`/api/schedules/${id}/complete`, {
+          method, headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        hideLoading();
+        if (data.success) {
+          bootstrap.Modal.getInstance(document.getElementById('completeModal')).hide();
+          showToast(data.message || (completeEditMode ? '完工记录已调整' : '工单已完工'), 'success');
+          completeEditMode = false;
+          loadSchedule();
+        } else showToast(data.message || '操作失败', 'danger');
+      } catch (e) {
+        hideLoading();
+        showToast(e.message || '网络错误', 'danger');
+      }
+    }
+
+    function clearSchedules() {
+      if (!confirm('仅清空未开工排程。已开工和已完工任务会保留。确认继续？')) return;
+      apiJson('/api/schedules/clear', { method: 'POST' })
+        .then(d => { showToast(d.message || '排程已清空', 'success'); loadSchedule(); })
+        .catch(e => showToast(e.message || '操作失败', 'danger'));
+    }
+
+    function exportSchedules() { window.location.href = '/api/schedules/export'; }
+
+    async function showScheduleChanges() {
+      try {
+        const data = await apiJson('/api/schedule/changes?limit=30');
+        const rows = (data.changes || []).map(x => `<tr><td>${formatTime(x.created_at)}</td><td>${escapeHtml(x.username || '系统')}</td><td>${escapeHtml(x.change_type)}</td><td>${escapeHtml(x.summary || '')}</td></tr>`).join('');
+        const modalHtml = `<div class="modal fade" id="scheduleChangesModal"><div class="modal-dialog modal-lg modal-dialog-scrollable"><div class="modal-content"><div class="modal-header"><h5 class="modal-title">排程变更历史</h5><button class="btn-close" data-bs-dismiss="modal"></button></div><div class="modal-body table-responsive"><table class="table table-sm"><thead><tr><th>时间</th><th>操作人</th><th>类型</th><th>说明</th></tr></thead><tbody>${rows || '<tr><td colspan="4" class="text-muted">暂无变更记录</td></tr>'}</tbody></table></div></div></div></div>`;
+        document.body.insertAdjacentHTML('beforeend', modalHtml);
+        const el=document.getElementById('scheduleChangesModal');
+        new bootstrap.Modal(el).show();
+        el.addEventListener('hidden.bs.modal',()=>el.remove(),{once:true});
+      } catch (e) { showToast(e.message || '读取变更历史失败','danger'); }
+    }
+
+    // ========== 用户管理 ==========
+    function loadUsers() {
+      fetch('/api/users').then(r => r.json()).then(d => {
+        const users = d.users || [];
+        let rows = users.map(u => `
+          <tr>
+            <td>${u.username}</td>
+            <td>${u.role === 'admin' ? '管理员' : u.role === 'editor' ? '编辑者' : '查看者'}</td>
+            <td>${u.created_at ? new Date(u.created_at).toLocaleString() : '-'}</td>
+            <td>${u.username !== 'admin' ? `<button class="btn btn-sm btn-outline-danger" onclick="deleteUser(${u.id})">删除</button>` : '-'}</td>
+          </tr>`).join('');
+        document.getElementById('contentArea').innerHTML = `
+          <div class="card-custom">
+            <div class="card-header">用户管理 <button class="btn btn-sm btn-primary" onclick="showUserModal()">新增用户</button></div>
+            <div class="card-body"><table class="table" id="usersTable"><thead class="table-light"><tr><th>用户名</th><th>角色</th><th>创建时间</th><th>操作</th></tr></thead><tbody>${rows}</tbody></table></div>
+          </div>
+          <div class="modal fade" id="userModal">
+            <div class="modal-dialog"><div class="modal-content">
+              <div class="modal-header"><h5 class="modal-title">新增用户</h5><button class="btn-close" data-bs-dismiss="modal"></button></div>
+              <div class="modal-body">
+                <div class="mb-3"><label class="form-label">用户名 *</label><input class="form-control" id="newUsername"></div>
+                <div class="mb-3"><label class="form-label">密码 *</label><input type="password" class="form-control" id="newUserPassword"></div>
+                <div class="mb-3"><label class="form-label">角色</label>
+                  <select class="form-select" id="newUserRole">
+                    <option value="viewer">查看者</option>
+                    <option value="editor">编辑者</option>
+                    <option value="admin">管理员</option>
+                  </select>
+                </div>
+              </div>
+              <div class="modal-footer"><button class="btn btn-secondary" data-bs-dismiss="modal">取消</button><button class="btn btn-primary" onclick="saveUser()">保存</button></div>
+            </div></div>
+          </div>`;
+        $('#usersTable').DataTable({destroy: true});
+        hideLoading();
+      });
+    }
+
+    function showUserModal() {
+      document.getElementById('newUsername').value = '';
+      document.getElementById('newUserPassword').value = '';
+      document.getElementById('newUserRole').value = 'viewer';
+      new bootstrap.Modal(document.getElementById('userModal')).show();
+    }
+
+    async function saveUser() {
+      const username = document.getElementById('newUsername').value.trim();
+      const password = document.getElementById('newUserPassword').value;
+      const role = document.getElementById('newUserRole').value;
+      if (!username || !password) { showToast('用户名和密码不能为空', 'warning'); return; }
+      try {
+        const resp = await fetch('/api/users', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username, password, role })
+        });
+        const data = await resp.json();
+        if (data.success) {
+          bootstrap.Modal.getInstance(document.getElementById('userModal')).hide();
+          showToast('用户创建成功', 'success');
+          loadUsers();
+        } else showToast(data.message || '创建失败', 'danger');
+      } catch (e) { showToast('网络错误', 'danger'); }
+    }
+
+    async function deleteUser(id) {
+      if (!confirm('确认删除该用户？')) return;
+      try {
+        const resp = await fetch(`/api/users/${id}`, { method: 'DELETE' });
+        const data = await resp.json();
+        if (data.success) { showToast('用户已删除', 'success'); loadUsers(); }
+        else showToast(data.message || '删除失败', 'danger');
+      } catch (e) { showToast('网络错误', 'danger'); }
+    }
+
+    // ========== 系统设置 ==========
+    function loadSettings() {
+      fetch('/api/settings').then(r => r.json()).then(d => {
+        workSettings = d.settings || {};
+        const s = workSettings;
+        document.getElementById('contentArea').innerHTML = `
+          <div class="card-custom">
+            <div class="card-header">系统设置</div>
+            <div class="card-body">
+              <div class="row">
+                <div class="col-md-4 mb-3"><label class="form-label">上班时间</label><input type="time" class="form-control" id="workStart" value="${s.work_start || '08:00'}"></div>
+                <div class="col-md-4 mb-3"><label class="form-label">下班时间</label><input type="time" class="form-control" id="workEnd" value="${s.work_end || '20:00'}"></div>
+                <div class="col-md-4 mb-3"><label class="form-label">午餐开始</label><input type="time" class="form-control" id="lunchStart" value="${s.break_lunch_start || '12:00'}"></div>
+                <div class="col-md-4 mb-3"><label class="form-label">午餐结束</label><input type="time" class="form-control" id="lunchEnd" value="${s.break_lunch_end || '13:00'}"></div>
+                <div class="col-md-4 mb-3"><label class="form-label">晚餐开始</label><input type="time" class="form-control" id="dinnerStart" value="${s.break_dinner_start || '17:30'}"></div>
+                <div class="col-md-4 mb-3"><label class="form-label">晚餐结束</label><input type="time" class="form-control" id="dinnerEnd" value="${s.break_dinner_end || '18:00'}"></div>
+              </div>
+            </div>
+            <div class="card-footer text-end">
+              ${currentUser.role !== 'viewer' ? '<button class="btn btn-primary" onclick="saveSettings()">保存设置</button>' : ''}
+            </div>
+          </div>
+          <div class="card-custom">
+            <div class="card-header">APS 高级排程规则 <span class="small text-muted">刀模/产品族换型时间矩阵</span></div>
+            <div class="card-body">
+              <p class="small text-muted">系统默认使用订单换模时间；在这里配置特定“上一刀模 → 下一刀模”的实际换模时间，可进一步减少估算误差。</p>
+              ${currentUser.role !== 'viewer' ? `
+              <div class="row g-2 mb-3">
+                <div class="col-md-4"><input class="form-control" id="setupFrom" placeholder="例如 MOLD:A001"></div>
+                <div class="col-md-4"><input class="form-control" id="setupTo" placeholder="例如 MOLD:B002"></div>
+                <div class="col-md-2"><input type="number" min="0" class="form-control" id="setupMinutes" value="30"></div>
+                <div class="col-md-2"><button class="btn btn-outline-primary w-100" onclick="saveSetupRule()">保存规则</button></div>
+              </div>` : ''}
+              <div class="table-responsive"><table class="table table-sm" id="setupRulesTable"><thead><tr><th>上一族</th><th>下一族</th><th>换模分钟</th><th>操作</th></tr></thead><tbody id="setupRulesBody"><tr><td colspan="4" class="text-muted">加载中...</td></tr></tbody></table></div>
+            </div>
+          </div>`;
+        loadSetupRules();
+        hideLoading();
+      });
+    }
+
+    async function loadSetupRules() {
+      try {
+        const resp = await fetch('/api/setup-rules');
+        const data = await resp.json();
+        const body = document.getElementById('setupRulesBody');
+        if (!body) return;
+        const rules = data.rules || [];
+        body.innerHTML = rules.length ? rules.map(r => `<tr><td>${escapeHtml(r.from_family)}</td><td>${escapeHtml(r.to_family)}</td><td>${Number(r.minutes)||0}</td><td>${currentUser.role!=='viewer'?`<button class="btn btn-sm btn-outline-danger" onclick="deleteSetupRule(${Number(r.id)})">删除</button>`:'-'}</td></tr>`).join('') : '<tr><td colspan="4" class="text-muted">暂无特殊换模规则，系统使用默认换模时间</td></tr>';
+      } catch (e) {
+        const body = document.getElementById('setupRulesBody');
+        if (body) body.innerHTML = '<tr><td colspan="4" class="text-danger">加载规则失败</td></tr>';
+      }
+    }
+
+    async function saveSetupRule() {
+      const from_family = document.getElementById('setupFrom').value.trim();
+      const to_family = document.getElementById('setupTo').value.trim();
+      const minutes = parseInt(document.getElementById('setupMinutes').value) || 0;
+      if (!from_family || !to_family) { showToast('请填写上一族和下一族', 'warning'); return; }
+      const resp = await fetch('/api/setup-rules', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({from_family,to_family,minutes}) });
+      const data = await resp.json();
+      if (data.success) { showToast('换模规则已保存', 'success'); loadSetupRules(); } else showToast(data.message || '保存失败','danger');
+    }
+
+    async function deleteSetupRule(id) {
+      if (!confirm('确认删除这条换模规则？')) return;
+      const resp = await fetch(`/api/setup-rules/${id}`, { method:'DELETE' });
+      const data = await resp.json();
+      if (data.success) { showToast('规则已删除','success'); loadSetupRules(); } else showToast(data.message || '删除失败','danger');
+    }
+
+    async function saveSettings() {
+      const payload = {
+        work_start: document.getElementById('workStart').value,
+        work_end: document.getElementById('workEnd').value,
+        break_lunch_start: document.getElementById('lunchStart').value,
+        break_lunch_end: document.getElementById('lunchEnd').value,
+        break_dinner_start: document.getElementById('dinnerStart').value,
+        break_dinner_end: document.getElementById('dinnerEnd').value
+      };
+      try {
+        const resp = await fetch('/api/settings', {
+          method: 'PUT', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        const data = await resp.json();
+        if (data.success) showToast('设置已保存', 'success');
+        else showToast(data.message || '保存失败', 'danger');
+      } catch (e) { showToast('网络错误', 'danger'); }
+    }
+
+    // ========== 修改密码 ==========
+    function openChangePassword() {
+      document.getElementById('oldPassword').value = '';
+      document.getElementById('newPassword').value = '';
+      document.getElementById('pwdError').textContent = '';
+      new bootstrap.Modal(document.getElementById('changePwdModal')).show();
+    }
+
+    async function changePassword() {
+      const oldPassword = document.getElementById('oldPassword').value;
+      const newPassword = document.getElementById('newPassword').value;
+      if (!oldPassword || !newPassword) { document.getElementById('pwdError').textContent = '请输入完整'; return; }
+      try {
+        const resp = await fetch('/api/auth/change-password', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ oldPassword, newPassword })
+        });
+        const data = await resp.json();
+        if (data.success) {
+          bootstrap.Modal.getInstance(document.getElementById('changePwdModal')).hide();
+          showToast('密码修改成功', 'success');
+        } else document.getElementById('pwdError').textContent = data.message || '修改失败';
+      } catch (e) { document.getElementById('pwdError').textContent = '网络错误'; }
+    }
+
+    async function healthCheck() {
+      try {
+        const data = await apiJson('/api/health');
+        showToast(data.ok ? '系统运行正常，数据库连接正常' : '系统健康检查异常', data.ok ? 'success' : 'warning');
+      } catch (e) {
+        showToast(e.message || '健康检查失败', 'danger');
+      }
+    }
+
+    // ========== AI 助手 ==========
+    function openAIAssistant() {
+      document.getElementById('aiChatHistory').innerHTML = '';
+      document.getElementById('aiQuestion').value = '';
+      new bootstrap.Modal(document.getElementById('aiModal')).show();
+    }
+
+    async function askAI() {
+      const question = document.getElementById('aiQuestion').value.trim();
+      if (!question) return;
+      const history = document.getElementById('aiChatHistory');
+      history.innerHTML += `<div class="ai-msg user">${escapeHtml(question)}</div>`;
+      document.getElementById('aiQuestion').value = '';
+
+      let answer = '抱歉，我暂时无法理解该指令。您可以尝试输入工单编号+完工，例如：WO2024001 完工。';
+      const match = question.match(/([A-Za-z0-9_-]+)\s*完工/);
+      if (match) {
+        const orderNumber = match[1];
+        const order = allOrders.find(o => o.order_number === orderNumber);
+        if (order) {
+          const schedule = allSchedules.find(s => s.order_id === order.id && s.status !== 'completed');
+          if (schedule) answer = `已找到工单 ${orderNumber}，对应排程 ID ${schedule.id}，请点击排产看板中的完工按钮进行操作。`;
+          else answer = `工单 ${orderNumber} 尚未排产或已完工。`;
+        } else answer = `未找到工单编号 ${orderNumber}。`;
+      }
+      history.innerHTML += `<div class="ai-msg bot">${escapeHtml(answer)}</div>`;
+      history.scrollTop = history.scrollHeight;
+    }
+  
+</script>
 </body>
 </html>
