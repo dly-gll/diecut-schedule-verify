@@ -552,6 +552,9 @@ function extractWorkflowRow(row, index, productMap, excelContext = {}) {
   const quantity = numberOr(findImportValue(row, [
     '工单数量','订单数量','需求数量','生产数量','计划数量','数量','qty','pcs','预计产量'
   ]), 0);
+  const shippingQuantity = numberOr(findImportValue(row, [
+    '出货数量','已出货数量','交货数量','发货数量','shipping_quantity','shipping quantity'
+  ]), 0);
   const stage = detectWorkflowStage(row);
   const fullText = Object.values(row || {}).map(v => normalizeImportText(v)).join(' | ');
   const productionProgress = normalizeImportText(findImportValue(row, ['生产进度','生产状态','生产阶段','production progress','progress']));
@@ -641,6 +644,7 @@ function extractWorkflowRow(row, index, productMap, excelContext = {}) {
     product_code: productCode,
     product_name: productName,
     quantity,
+    shipping_quantity: shippingQuantity,
     stage,
     status_text: fullText.slice(0,1000),
     production_progress: productionProgress,
@@ -921,7 +925,7 @@ app.post('/api/workflow/import', requireEdit, (req,res)=>{
               INSERT INTO orders(order_number,product_code,product_name,quantity,shipping_quantity,shipping_required_date,delivery_date,delivery_time,capacity,mold,mold_change_time,process,machine_tokens,priority,material_ready_at,remark,workflow_stage,workflow_status_text,workflow_expected_date,workflow_last_import_date,workflow_production_progress,workflow_material_status,workflow_shortage_detail)
               VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
             `).run(
-              item.work_order_number,item.product_code,item.product_name,item.quantity,0,item.shipping_required_date||null,item.delivery_date||null,null,
+              item.work_order_number,item.product_code,item.product_name,item.quantity,Number(item.shipping_quantity)||0,item.shipping_required_date||null,item.delivery_date||null,null,
               Number(item.capacity)||1000,item.mold||'',Number(item.mold_change_time)||30,item.process||'',item.machine_tokens||'',item.shipping_gap>0?90:0,item.expected_ready_date||null,item.note||'Excel工作流自动导入',
               item.stage,item.status_text,item.expected_date||item.expected_start_date||item.expected_ready_date||null,snapshotDate,item.production_progress||'',item.material_status||'',item.shortage_detail||''
             );
@@ -935,13 +939,13 @@ app.post('/api/workflow/import', requireEdit, (req,res)=>{
           const expectedStageDate=item.stage==='shortage'?item.expected_ready_date:(item.stage==='available_to_issue'?item.expected_issue_date:(item.stage==='waiting_schedule'?item.expected_start_date:item.expected_finish_date));
           updateWorkflowTransition(order,item.stage,snapshotDate,expectedStageDate,item.status_text);
           db.prepare(`UPDATE orders SET product_name=CASE WHEN ?<>'' THEN ? ELSE product_name END,quantity=CASE WHEN ? > 0 THEN ? ELSE quantity END,
-            shipping_required_date=?,delivery_date=?,
+            shipping_quantity=?,shipping_required_date=?,delivery_date=?,
             capacity=CASE WHEN ? > 0 THEN ? ELSE capacity END,mold=CASE WHEN ?<>'' THEN ? ELSE mold END,
             mold_change_time=CASE WHEN ? >= 0 THEN ? ELSE mold_change_time END,process=CASE WHEN ?<>'' THEN ? ELSE process END,
             machine_tokens=CASE WHEN ?<>'' THEN ? ELSE machine_tokens END,material_ready_at=?,
             workflow_status_text=?,workflow_expected_date=?,workflow_last_import_date=?,workflow_production_progress=?,workflow_material_status=?,workflow_shortage_detail=?,remark=CASE WHEN ?<>'' THEN ? ELSE remark END
             WHERE id=?`).run(
-              item.product_name||'',item.product_name||'',Number(item.quantity)||0,Number(item.quantity)||0,item.shipping_required_date||null,item.delivery_date||null,
+              item.product_name||'',item.product_name||'',Number(item.quantity)||0,Number(item.quantity)||0,Number(item.shipping_quantity)||0,item.shipping_required_date||null,item.delivery_date||null,
               Number(item.capacity)||0,Number(item.capacity)||0,item.mold||'',item.mold||'',Number.isFinite(Number(item.mold_change_time))?Number(item.mold_change_time):0,Number(item.mold_change_time)||0,
               item.process||'',item.process||'',item.machine_tokens||'',item.machine_tokens||'',item.expected_ready_date||null,item.status_text,item.expected_date||item.expected_start_date||item.expected_ready_date||null,snapshotDate,item.production_progress||'',item.material_status||'',item.shortage_detail||'',item.note||'',item.note||'',order.id
           );
