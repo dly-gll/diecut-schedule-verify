@@ -803,6 +803,7 @@ function extractWorkflowRow(row, index, productMap, excelContext = {}) {
 
 
 
+
 function workflowStageRank(stage) { return WORKFLOW_STAGE_ORDER.indexOf(stage) >= 0 ? WORKFLOW_STAGE_ORDER.indexOf(stage) : 0; }
 
 function getWorkflowOrderRow(orderNumber, productCode) {
