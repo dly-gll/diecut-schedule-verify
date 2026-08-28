@@ -26,6 +26,8 @@ jobs:
           cache-dependency-path: diecut-schedule/package-lock.json
       - name: Apply shipping quantity repair
         run: node ../tools/repair-shipping-quantity.js
+      - name: Apply workflow field priority repair
+        run: node ../tools/repair-workflow-fields.js
       - name: Apply workflow UI repair
         run: node ../tools/repair-workflow-ui.js
       - name: Commit verified source repair
