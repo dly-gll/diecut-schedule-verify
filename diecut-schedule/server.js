@@ -219,6 +219,7 @@ ensureColumn('product_data', 'jump_distance', 'REAL');
 
 // workflow_snapshots 表创建完成后再补充兼容字段。
 ensureColumn('workflow_snapshots', 'shipping_required_date', 'TEXT');
+ensureColumn('workflow_snapshots', 'shipping_quantity', 'REAL DEFAULT 0');
 ensureColumn('workflow_snapshots', 'delivery_date', 'TEXT');
 ensureColumn('workflow_snapshots', 'expected_ready_date', 'TEXT');
 ensureColumn('workflow_snapshots', 'expected_issue_date', 'TEXT');
