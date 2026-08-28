@@ -228,6 +228,57 @@ ensureColumn('workflow_snapshots', 'production_progress', 'TEXT');
 ensureColumn('workflow_snapshots', 'material_status', 'TEXT');
 ensureColumn('workflow_snapshots', 'shortage_detail', 'TEXT');
 
+// V5.1.3-SHIPPING-QTY-BACKFILL
+function backfillOrderShippingQuantities() {
+  const latestBatch = db.prepare('SELECT id FROM workflow_import_batches ORDER BY id DESC LIMIT 1').get();
+  if (!latestBatch) return 0;
+
+  const rows = db.prepare(`
+    SELECT s.id, s.work_order_number, s.raw_json, s.shipping_required_date, s.delivery_date
+    FROM workflow_snapshots s
+    WHERE s.batch_id=?
+      AND s.id IN (
+        SELECT MAX(s2.id)
+        FROM workflow_snapshots s2
+        WHERE s2.batch_id=?
+        GROUP BY s2.work_order_number
+      )
+      AND s.work_order_number IS NOT NULL
+      AND TRIM(s.work_order_number) <> ''
+  `).all(latestBatch.id, latestBatch.id);
+
+  const findOrder = db.prepare('SELECT id FROM orders WHERE order_number=? ORDER BY id DESC LIMIT 1');
+  const update = db.prepare(`
+    UPDATE orders
+    SET shipping_quantity=?,
+        shipping_required_date=COALESCE(?, shipping_required_date),
+        delivery_date=COALESCE(?, delivery_date)
+    WHERE id=?
+  `);
+
+  let changed = 0;
+  const tx = db.transaction(() => {
+    for (const row of rows) {
+      let raw = null;
+      try { raw = row.raw_json ? JSON.parse(row.raw_json) : null; } catch {}
+      if (!raw) continue;
+      const direct = Number(raw.shipping_quantity);
+      const fallback = Number(raw.delivery_qty);
+      const quantity = Number.isFinite(direct) && direct >= 0 ? direct
+        : Number.isFinite(fallback) && fallback >= 0 ? fallback : null;
+      if (quantity === null) continue;
+
+      const order = findOrder.get(row.work_order_number);
+      if (!order) continue;
+      update.run(quantity, row.shipping_required_date || null, row.delivery_date || null, order.id);
+      changed += 1;
+    }
+  });
+  tx();
+  return changed;
+}
+backfillOrderShippingQuantities();
+
 function hashPassword(password) {
   const salt = crypto.randomBytes(16).toString('hex');
   const derived = crypto.scryptSync(String(password), salt, 64);
