@@ -17,6 +17,8 @@ jobs:
         working-directory: diecut-schedule
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: actions/setup-node@v4
         with:
           node-version: 20
@@ -33,7 +35,7 @@ jobs:
           cd ..
           if ! git diff --quiet -- diecut-schedule/server.js diecut-schedule/public/index.html; then
             git add diecut-schedule/server.js diecut-schedule/public/index.html
-            git commit -m "Fix workflow board UI and data presentation"
+            git commit -m "Fix verified source and workflow UI"
             git fetch origin main
             git rebase origin/main
             git push origin HEAD:main
@@ -47,7 +49,6 @@ jobs:
         run: |
           cd ..
           rm -rf /tmp/diecut-release /tmp/diecut-schedule-verified.zip
-          mkdir -p /tmp/diecut-release
           mkdir -p /tmp/diecut-release/diecut-schedule
           rsync -a --exclude=node_modules --exclude=data.db --exclude='data.db-*' --exclude=.git diecut-schedule/ /tmp/diecut-release/diecut-schedule/
           test -f /tmp/diecut-release/diecut-schedule/server.js
