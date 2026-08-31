@@ -1,7 +1,7 @@
 const fs = require('fs');
 
-const server = fs.readFileSync('diecut-schedule/server.js', 'utf8');
-const index = fs.readFileSync('diecut-schedule/public/index.html', 'utf8');
+const server = fs.readFileSync('server.js', 'utf8');
+const index = fs.readFileSync('public/index.html', 'utf8');
 
 if (!server.includes('// V5.2-EMPTY-BOARD-VIEW-FIX')) throw new Error('Empty-board server fix marker missing');
 if (!server.includes("FROM workflow_import_batches b") || !server.includes("JOIN workflow_snapshots s ON s.batch_id=b.id AND s.stage=?")) {
