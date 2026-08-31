@@ -1112,6 +1112,82 @@ app.post('/api/workflow/import', requireEdit, (req,res)=>{
 
 
 // V5.1.4-WORKFLOW-FIELDS-VERIFIED
+// V5.2: 保证当天未导入新数据时仍可查看最近一次有效批次。
+app.get('/api/workflow/board', requireAuth, (req, res) => {
+  try {
+    const stage = String(req.query.stage || 'shortage');
+    const allowed = new Set(['shortage','available_to_issue','waiting_schedule','in_process']);
+    if (!allowed.has(stage)) return res.status(400).json({success:false,message:'无效的看板板块'});
+
+    const batch = db.prepare(
+      `SELECT b.id, b.snapshot_date, b.imported_at, b.filename
+       FROM workflow_import_batches b
+       JOIN workflow_snapshots s ON s.batch_id=b.id AND s.stage=?
+       WHERE s.work_order_number IS NOT NULL AND TRIM(s.work_order_number)<>''
+       GROUP BY b.id
+       ORDER BY b.id DESC
+       LIMIT 1`
+    ).get(stage);
+
+    if (!batch) return res.json({success:true, stage, count:0, rows:[], alerts:[], latest_import_date:null, data_date:null});
+
+    const rows = db.prepare(
+      `SELECT s.*,
+              o.id AS order_id, o.status AS order_status, o.quantity AS order_quantity,
+              o.shipping_quantity AS order_shipping_quantity,
+              o.shipping_required_date AS order_shipping_required_date,
+              o.delivery_date AS order_delivery_date,
+              o.workflow_expected_date AS order_workflow_expected_date,
+              o.workflow_production_progress AS order_production_progress,
+              o.workflow_material_status AS order_material_status,
+              o.workflow_shortage_detail AS order_shortage_detail,
+              o.product_code AS order_product_code, o.product_name AS order_product_name
+       FROM workflow_snapshots s
+       LEFT JOIN orders o ON o.order_number=s.work_order_number
+       WHERE s.batch_id=? AND s.stage=?
+         AND s.id IN (
+           SELECT MAX(s2.id) FROM workflow_snapshots s2
+           WHERE s2.batch_id=? AND s2.stage=?
+           GROUP BY s2.work_order_number
+         )
+       ORDER BY COALESCE(NULLIF(s.shipping_required_date,''), NULLIF(o.shipping_required_date,''), NULLIF(s.delivery_date,''), NULLIF(o.delivery_date,''), s.expected_date, o.workflow_expected_date, '9999-12-31'), s.id ASC`
+    ).all(batch.id, stage, batch.id, stage);
+
+    const projected = rows.map(r => {
+      const quantity = Number(r.quantity) > 0 ? Number(r.quantity) : Number(r.order_quantity) || 0;
+      const shippingQuantity = Number(r.shipping_quantity) >= 0 ? Number(r.shipping_quantity) : (Number(r.order_shipping_quantity) || 0);
+      const shippingRequiredDate = r.shipping_required_date || r.order_shipping_required_date || r.delivery_date || r.order_delivery_date || '';
+      const expectedDate = r.expected_date || r.order_workflow_expected_date || '';
+      const productionProgress = r.production_progress || r.order_production_progress || '';
+      const materialStatus = r.material_status || r.order_material_status || '';
+      const shortageDetail = r.shortage_detail || r.order_shortage_detail || '';
+      return {
+        order_number:r.work_order_number,
+        product_code:r.product_code || r.order_product_code || '',
+        product_name:r.product_name || r.order_product_name || '',
+        quantity,
+        shipping_quantity:shippingQuantity,
+        shipping_required_date:shippingRequiredDate,
+        delivery_date:r.delivery_date || r.order_delivery_date || '',
+        workflow_expected_date:expectedDate,
+        production_progress:productionProgress,
+        material_status:materialStatus,
+        shortage_detail:shortageDetail,
+        workflow_production_progress:productionProgress,
+        workflow_material_status:materialStatus,
+        workflow_shortage_detail:shortageDetail,
+        order_status:r.order_status || '',
+        workflow_status_text:r.status_text || ''
+      };
+    });
+
+    res.json({success:true, stage, count:projected.length, rows:projected, alerts:[], latest_import_date:batch.snapshot_date, data_date:batch.snapshot_date, filename:batch.filename || ''});
+  } catch (err) {
+    console.error('读取排产看板失败:', err.stack || err.message);
+    res.status(500).json({success:false,message:'读取排产看板失败：'+err.message});
+  }
+});
+
 app.get('/api/workflow/board', requireAuth, (req,res)=>{
   try{
     const stage=WORKFLOW_STAGE_ORDER.includes(String(req.query?.stage))?String(req.query.stage):'shortage';
@@ -1160,6 +1236,19 @@ app.get('/api/workflow/board', requireAuth, (req,res)=>{
       .map(r=>({order_number:r.order_number,product_code:r.product_code,reason:`${alertDateLabel} ${r.workflow_expected_date} 已过，当前仍在${WORKFLOW_STAGES[stage]}`}));
     res.json({success:true,stage,label:WORKFLOW_STAGES[stage],count:rows.length,latest_import_date:latestBatch.snapshot_date,alerts,rows,product_shortages:[]});
   }catch(err){console.error('读取车间板块失败:',err.stack||err.message);res.status(500).json({success:false,message:'读取车间板块失败：'+err.message});}
+});
+
+// V5.2: KPI只读取最近一次已计算的快照；导入新数据时再刷新计算。
+app.get('/api/workflow/kpi', requireAuth, (req, res) => {
+  try {
+    const latest = db.prepare('SELECT kpi_date FROM workflow_daily_kpi ORDER BY kpi_date DESC LIMIT 1').get();
+    if (!latest) return res.json({success:true,kpi:[],kpi_date:null,has_data:false});
+    const kpi = db.prepare('SELECT * FROM workflow_daily_kpi WHERE kpi_date=? ORDER BY CASE stage WHEN \'shortage\' THEN 1 WHEN \'available_to_issue\' THEN 2 WHEN \'waiting_schedule\' THEN 3 WHEN \'in_process\' THEN 4 ELSE 5 END').all(latest.kpi_date);
+    res.json({success:true,kpi,kpi_date:latest.kpi_date,has_data:kpi.length>0});
+  } catch (err) {
+    console.error('读取KPI失败:', err.stack || err.message);
+    res.status(500).json({success:false,message:'读取KPI失败：'+err.message});
+  }
 });
 
 app.get('/api/workflow/kpi', requireAuth, (req,res)=>{
@@ -2863,3 +2952,5 @@ server.listen(PORT, '0.0.0.0', () => {
   console.log(`✅ 服务器已启动，访问地址: http://localhost:${PORT}`);
 });
 // V5.2-IMPORT-DATA-SCOPE-ISOLATION
+
+// V5.2-EMPTY-BOARD-VIEW-FIX
