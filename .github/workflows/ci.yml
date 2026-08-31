@@ -25,9 +25,11 @@ jobs:
           cache: npm
           cache-dependency-path: diecut-schedule/package-lock.json
 
-      # Only this patch is allowed to change the current stable source for this task.
+      # Apply stable verification patches, then commit their resulting source before tests.
       - name: Apply page-owned import isolation
         run: node ../tools/apply-page-owned-import-isolation.js
+      - name: Apply empty-board view fix
+        run: node ../tools/apply-empty-board-view-fix.js
 
       - name: Commit verified source repair
         run: |
@@ -36,7 +38,7 @@ jobs:
           cd ..
           if ! git diff --quiet -- diecut-schedule/server.js diecut-schedule/public/index.html; then
             git add diecut-schedule/server.js diecut-schedule/public/index.html
-            git commit -m "Enforce page-owned Excel imports"
+            git commit -m "Verify latest-data board view behavior"
             git fetch origin main
             git rebase origin/main
             git push origin HEAD:main
@@ -48,6 +50,7 @@ jobs:
       - run: node ../test-workflow-board.js
       - run: node ../test-product-machine-priority.js
       - run: node ../test-import-data-scope.js
+      - run: node ../test-empty-board-view.js
       - run: node ../test-ui-features.js
 
       - name: Package verified source
