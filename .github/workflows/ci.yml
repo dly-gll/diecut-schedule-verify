@@ -52,6 +52,7 @@ jobs:
       - run: node ../test-import-data-scope.js
       - run: node ../test-empty-board-view.js
       - run: node ../test-ui-features.js
+      - run: node ../test-admin-password-reset.js
 
       - name: Package verified source
         run: |
@@ -61,6 +62,7 @@ jobs:
           rsync -a --exclude=node_modules --exclude=data.db --exclude='data.db-*' --exclude=.git diecut-schedule/ /tmp/diecut-release/diecut-schedule/
           test -f /tmp/diecut-release/diecut-schedule/server.js
           test -f /tmp/diecut-release/diecut-schedule/package.json
+          test -f /tmp/diecut-release/diecut-schedule/scripts/reset-admin-password.js
           cd /tmp/diecut-release
           zip -qr /tmp/diecut-schedule-verified.zip diecut-schedule
           unzip -l /tmp/diecut-schedule-verified.zip | grep -q 'diecut-schedule/server.js'
