@@ -1,7 +1,7 @@
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
-const Database = require('better-sqlite3');
+const Database = require(path.join(__dirname, 'diecut-schedule', 'node_modules', 'better-sqlite3'));
 
 const root = path.join(__dirname, 'diecut-schedule');
 const utilPath = path.join(root, 'scripts', 'reset-admin-password.js');
