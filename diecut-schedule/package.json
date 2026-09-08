@@ -9,7 +9,8 @@
     "check": "node --check server.js",
     "serve": "NODE_ENV=production node server.js",
     "lint": "eslint .",
-    "lint:fix": "eslint . --fix"
+    "lint:fix": "eslint . --fix",
+    "reset-admin-password": "node scripts/reset-admin-password.js"
   },
   "engines": {
     "node": ">=18"
