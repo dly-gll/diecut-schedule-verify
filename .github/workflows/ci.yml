@@ -30,6 +30,8 @@ jobs:
         run: node ../tools/apply-page-owned-import-isolation.js
       - name: Apply empty-board view fix
         run: node ../tools/apply-empty-board-view-fix.js
+      - name: Apply partial-schedule precheck fix
+        run: node ../tools/apply-schedule-precheck-partial.js
 
       - name: Commit verified source repair
         run: |
@@ -53,6 +55,7 @@ jobs:
       - run: node ../test-empty-board-view.js
       - run: node ../test-ui-features.js
       - run: node ../test-admin-password-reset.js
+      - run: node ../test-partial-schedule-precheck.js
 
       - name: Package verified source
         run: |
