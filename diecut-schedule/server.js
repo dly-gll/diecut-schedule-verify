@@ -2918,25 +2918,38 @@ app.get('/api/schedule/precheck', requireAuth, (req,res)=>{
     const orders = db.prepare("SELECT * FROM orders WHERE status IN ('pending','scheduled') AND workflow_stage='waiting_schedule'").all();
     const machines = db.prepare("SELECT * FROM machines WHERE status='active'").all();
     const products = db.prepare('SELECT * FROM product_data').all();
-    const issues = [];
-    if (!settings) issues.push('系统设置不存在');
-    if (!machines.length) issues.push('没有启用的设备');
-    let noCapacity=0, noProcess=0, noMold=0, noQty=0;
+    const productMap = new Map(products.map(p => [String(p.product_code || '').trim(), p]));
+    const blockingIssues = [];
+    const warnings = [];
+    if (!settings) blockingIssues.push('系统设置不存在');
+    if (!machines.length) blockingIssues.push('没有启用的设备');
+
+    let noCapacity=0, noProcess=0, noMold=0, noQty=0, noMachine=0, schedulable=0;
     for (const o of orders) {
       if (!(Number(o.quantity)>0)) noQty++;
-      if (!o.process) noProcess++;
-      if (!o.mold) noMold++;
       if (!(Number(o.capacity)>0)) noCapacity++;
+      if (!String(o.process || '').trim()) noProcess++;
+      if (!String(o.mold || '').trim()) noMold++;
+      const external = /外购|委外|外发/.test(`${o.mold||''}|${o.process||''}`);
+      const eligible = getEligibleMachines(o, machines, productMap);
+      if (!external && !getOrderMachineTokens(o, productMap).length) noMachine++;
+      if (Number(o.quantity)>0 && eligible.length) schedulable++;
     }
-    if (noQty) issues.push(`有 ${noQty} 单数量无效`);
-    if (noProcess) issues.push(`有 ${noProcess} 单未填写设备`);
-    if (noMold) issues.push(`有 ${noMold} 单未填写刀模`);
-    res.json({success:true, ready:issues.length===0, issues, counts:{orders:orders.length,machines:machines.length,products:products.length,noCapacity,noProcess,noMold,noQty}});
+    if (noQty) warnings.push(`有 ${noQty} 单数量无效，这些订单不会排产`);
+    if (noCapacity) warnings.push(`有 ${noCapacity} 单没有有效产能，将使用默认产能`);
+    if (noMachine) warnings.push(`有 ${noMachine} 单未匹配到可用设备，这些订单将暂不排产`);
+    if (noProcess) warnings.push(`有 ${noProcess} 单未填写工艺/设备字段，系统继续尝试产品数据和设备匹配`);
+    if (noMold) warnings.push(`有 ${noMold} 单未填写刀模，其它条件满足的订单仍允许先排产`);
+    if (orders.length && schedulable===0 && !blockingIssues.length) blockingIssues.push('当前没有匹配到任何可排产订单，请检查产品数据/设备匹配');
+    const issues = [...blockingIssues, ...warnings];
+    res.json({success:true, ready:blockingIssues.length===0, issues, warnings, blocking_issues:blockingIssues, counts:{orders:orders.length,machines:machines.length,products:products.length,noCapacity,noProcess,noMold,noMachine,noQty,schedulable}});
   } catch(err){
     console.error('排程预检失败:',err.stack||err.message);
     res.status(500).json({success:false,message:'排程预检失败：'+err.message});
   }
 });
+// V5.1.9-PARTIAL-SCHEDULE-PRECHECK
+
 
 app.get('/api/health', (req, res) => {
   try {
