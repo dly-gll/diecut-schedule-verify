@@ -1,6 +1,6 @@
 const fs = require('fs');
 const path = require('path');
-const Database = require('better-sqlite3');
+const Database = require(path.join(__dirname, 'diecut-schedule', 'node_modules', 'better-sqlite3'));
 
 const serverPath = path.join(__dirname, 'diecut-schedule', 'server.js');
 const source = fs.readFileSync(serverPath, 'utf8');
