@@ -32,6 +32,8 @@ jobs:
         run: node ../tools/apply-empty-board-view-fix.js
       - name: Apply partial-schedule precheck fix
         run: node ../tools/apply-schedule-precheck-partial.js
+      - name: Apply process-machine fallback
+        run: node ../tools/apply-process-machine-fallback.js
 
       - name: Commit verified source repair
         run: |
@@ -56,6 +58,7 @@ jobs:
       - run: node ../test-ui-features.js
       - run: node ../test-admin-password-reset.js
       - run: node ../test-partial-schedule-precheck.js
+      - run: node ../test-process-machine-fallback.js
 
       - name: Package verified source
         run: |
