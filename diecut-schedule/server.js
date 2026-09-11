@@ -1790,8 +1790,49 @@ function parseDueDate(value) {
   return Number.isNaN(d.getTime()) ? null : new Date(d.getFullYear(), d.getMonth(), d.getDate(), 23, 59, 59, 999);
 }
 
+// V5.1.10-PROCESS-MACHINE-FALLBACK
+function machineFamilyKey(value) {
+  return normalizeMachineToken(value)
+    .replace(/[\(\（][^\)\）]*[\)\）]/g, '')
+    .replace(/\d+$/g, '');
+}
+
+function splitProcessMachineHints(value) {
+  const raw = normalizeImportText(value);
+  if (!raw) return [];
+  return [...new Set(raw.split(/[+＋,，、|;；]+/).map(v => normalizeImportText(v)).filter(Boolean))];
+}
+
+function deriveMachineTokensFromProcess(process, knownMachines) {
+  const hints = splitProcessMachineHints(process);
+  if (!hints.length) return [];
+
+  const aliases = new Map([
+    ['五金', '五金冲压']
+  ]);
+  const families = [];
+  for (const machine of knownMachines) {
+    for (const raw of [machine.name, machine.machine_type]) {
+      const key = machineFamilyKey(raw);
+      if (key && key.length >= 2) families.push(key);
+    }
+  }
+  const uniqueFamilies = [...new Set(families)].sort((a, b) => b.length - a.length);
+  const result = [];
+
+  for (const hint of hints) {
+    let key = normalizeMachineToken(hint);
+    if (aliases.has(key)) key = normalizeMachineToken(aliases.get(key));
+    const core = machineFamilyKey(key);
+    const matched = uniqueFamilies.find(family => core === family || core.includes(family));
+    if (matched) result.push(matched);
+  }
+  return [...new Set(result)];
+}
+
 function getOrderMachineTokens(order, productMap = null) {
-  // 设备必须来自“设备字段/产品可用设备”；工艺不再误当成设备。
+  // 设备优先级：产品数据明确设备 > Excel/订单设备 > 当前工艺与现有设备族的安全匹配。
+  // 只读取现有设备主数据，不根据工艺名称自动创建新设备。
   const code = normalizeProductCode(order?.product_code);
   const product = productMap ? productMap.get(code) : null;
   const candidates = [
@@ -1804,16 +1845,12 @@ function getOrderMachineTokens(order, productMap = null) {
     const tokens = splitMachineTokens(raw);
     if (tokens.length) return tokens;
   }
-  // 兼容旧数据：只有当 process 本身就是现有设备名称/设备类型时才使用。
-  const process = normalizeImportText(order?.process);
-  if (process) {
-    const pn = normalizeMachineToken(process);
-    const known = db.prepare('SELECT name,machine_type FROM machines').all();
-    if (known.some(m => normalizeMachineToken(m.name) === pn || normalizeMachineToken(m.machine_type) === pn)) {
-      return splitMachineTokens(process);
-    }
-  }
-  return [];
+
+  const process = normalizeImportText(product?.process || order?.process);
+  if (!process || /外购|委外|外发/.test(process)) return [];
+
+  const known = db.prepare("SELECT name,machine_type FROM machines WHERE status='active'").all();
+  return deriveMachineTokensFromProcess(process, known);
 }
 
 function resolveOrderCapacity(order, productMap) {
